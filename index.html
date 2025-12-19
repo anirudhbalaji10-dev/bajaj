@@ -156,7 +156,7 @@ body.dark{
     <button onclick="nav(stockView)">📦 Stock</button>
     <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
     <button onclick="nav(searchView)">🔍 Search</button>
-    <button onclick="nav(invoiceView)">🧾 Invoice / GST</button>
+    <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
     <button onclick="exportData()">📤 Export</button>
     <button onclick="importData()">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
@@ -170,6 +170,8 @@ body.dark{
 <input type="file" id="fileInput" hidden>
 
 <script>
+  if(!localStorage.billNo)
+    localStorage.billNo = "1";
 /* SPLASH */
 setTimeout(()=>{
   splash.style.display="none";
@@ -264,7 +266,8 @@ function stockView(){
 function addStock(){
   let n=prompt("Spare name"),q=+prompt("Qty"),c=+prompt("Cost");
   if(!n||q<0) return;
-  stock[n]={qty:q,cost:c};
+  let price = +prompt("Selling price (GST included)");
+stock[n] = { qty: q, cost: c, price: price };
   stockView();
 }
 function editStock(i){
@@ -439,6 +442,89 @@ function changePin(){
 
   localStorage.ownerPin = newPin;
   alert("Owner PIN updated successfully");
+}
+function generateTodayBill(){
+  let billNo = "BM-" + localStorage.billNo.padStart(4,"0");
+  let phone = prompt("Customer phone number:");
+  let vehicle = prompt("Vehicle number:");
+  let labour = +prompt("Labour charge (₹):") || 0;
+
+  if(!phone || !vehicle){
+    alert("Details required");
+    return;
+  }
+
+  let today = new Date().toDateString();
+
+  let items = history.filter(h =>
+    h.phone === phone &&
+    h.vehicle === vehicle &&
+    new Date(h.time).toDateString() === today
+  );
+
+  if(items.length === 0){
+    alert("No service found for today");
+    return;
+  }
+
+  let total = labour;
+  let rows = "";
+
+  items.forEach(i=>{
+    let price = stock[i.item]?.price || 0;
+    let amount = price * i.qty;
+    total += amount;
+
+    rows += `
+      <tr>
+        <td>${i.item}</td>
+        <td>${i.qty}</td>
+        <td>₹${amount}</td>
+      </tr>`;
+  });
+  if(labour > 0){
+  rows += `
+    <tr>
+      <td>Labour Charge</td>
+      <td>—</td>
+      <td>₹${labour}</td>
+    </tr>`;
+  
+}
+
+  main.innerHTML = `
+    <div class="card" id="billArea">
+      <h2>Balaji Motors – Anavatti</h2>
+      <p><b>Bill No:</b> ${billNo}</p>
+      <p>Bajaj Authorised Service</p>
+      <hr>
+
+      <p>
+        <b>Phone:</b> ${phone}<br>
+        <b>Vehicle:</b> ${vehicle}<br>
+        <b>Date:</b> ${today}
+      </p>
+
+      <table width="100%" border="1" cellspacing="0" cellpadding="6">
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Amount</th>
+        </tr>
+        ${rows}
+      </table>
+
+      <h3>Total Amount: ₹${total}</h3>
+      <p>(GST included in price)</p>
+
+      <button onclick="printBill()">🖨 Print Bill</button>
+      <button onclick="dashboard()">⬅ Back</button>
+    </div>
+  `;
+  localStorage.invoiceNo = (+localStorage.invoiceNo + 1).toString();
+}
+function printBill(){
+  window.print();
 }
 </script>
 
