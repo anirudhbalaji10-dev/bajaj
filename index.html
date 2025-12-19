@@ -102,15 +102,35 @@ body.dark{
 }
 
 /* RESPONSIVE */
-@media(max-width:768px){
-  .mobileHeader{display:flex}
+@media (max-width: 768px){
+  .mobileHeader{
+    display:flex;
+  }
+
+  .app{
+    flex-direction:column;
+    height:auto;
+  }
+
   .sidebar{
     position:fixed;
-    left:-260px;top:0;height:100%;
-    transition:.3s;z-index:1000;
+    top:0;
+    left:-260px;
+    width:260px;
+    height:100vh;
+    z-index:1000;
+    transition:0.3s;
   }
-  .sidebar.show{left:0}
-  .app{flex-direction:column}
+
+  .sidebar.show{
+    left:0;
+  }
+
+  .main{
+    width:100%;
+    padding:15px;
+    margin-left:0;
+  }
 }
 </style>
 </head>
