@@ -120,8 +120,7 @@ body.dark{
 <!-- SPLASH -->
 <div id="splash">
   <img src="https://upload.wikimedia.org/wikipedia/commons/6/6e/Bajaj_Auto_Logo.svg">
-  <h2>Balaji Motors</h2>
-  <small>Anavatti</small>
+  <h1>Welcome to Balaji Motors Anavtti</h1>
 </div>
 
 <div class="mobileHeader">
@@ -248,17 +247,69 @@ function delStock(i){
   if(confirm("Delete?")){delete stock[i];stockView();}
 }
 function useStock(i){
-  let q=+prompt("Qty");
-  let cust=prompt("Customer");
-  let phone=prompt("Phone");
-  let vehicle=prompt("Vehicle");
-  if(stock[i].qty<q) return;
-  stock[i].qty-=q;
-  let time=new Date().toLocaleString();
-  history.unshift({cust,phone,vehicle,item:i,qty:q,time});
-  localStorage.history=JSON.stringify(history);
-  window.open(`https://wa.me/91${phone}?text=Hello ${cust}, your vehicle ${vehicle} service is completed at Balaji Motors, Anavatti. Thank you.`);
-  stockView();
+  let q = +prompt("Quantity used:");
+  let cust = prompt("Customer name:");
+  let phone = prompt("Phone (10 digits):");
+  let vehicle = prompt("Vehicle number:");
+  let staff = prompt("Staff name:");
+
+  if(
+    !cust || 
+    !vehicle || 
+    !staff || 
+    !/^\d{10}$/.test(phone) || 
+    stock[i].qty < q
+  ){
+    alert("Invalid input");
+    return;
+  }
+
+  stock[i].qty -= q;
+
+  let time = new Date().toLocaleString();
+
+  history.unshift({
+    cust,
+    phone,
+    vehicle,
+    item: i,
+    qty: q,
+    staff,
+    time
+  });
+
+  localStorage.history = JSON.stringify(history);
+  localStorage.stock = JSON.stringify(stock);
+
+  let msg =
+`Hello ${cust},
+
+Your vehicle ${vehicle} service is completed at
+Balaji Motors, Anavatti.
+
+🛠️ Service Date: ${time}
+👨‍🔧 Serviced by: ${staff}
+
+Thank you for visiting Bajaj Authorised Service.`;
+
+  main.innerHTML = `
+    <div class="card">
+      <h3>Service Saved</h3>
+      <p><b>Customer:</b> ${cust}</p>
+      <p><b>Vehicle:</b> ${vehicle}</p>
+      <p><b>Staff:</b> ${staff}</p>
+      <p><b>Date:</b> ${time}</p>
+
+      <a class="whatsapp"
+         href="https://wa.me/91${phone}?text=${encodeURIComponent(msg)}"
+         target="_blank">
+         📲 Send WhatsApp Message
+      </a>
+
+      <br><br>
+      <button onclick="stockView()">⬅ Back to Stock</button>
+    </div>
+  `;
 }
 
 /* MONTHLY */
