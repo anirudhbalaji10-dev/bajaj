@@ -161,7 +161,7 @@ body.dark{
     <button onclick="importData()">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
     <button onclick="nav(historyView)">📜 History</button>
-    <button onclick="changePin()">🔐 Change PIN</button>
+    <button id="changePinBtn" onclick="changePin()">🔐 Change PIN</button>
   </div>
 
   <div class="main" id="main"></div>
@@ -199,10 +199,19 @@ if(!localStorage.staffPin) localStorage.staffPin="1111";
 let role="owner";
 
 function login(){
-  let p=prompt("Enter PIN");
-  if(p===localStorage.ownerPin) role="owner";
-  else if(p===localStorage.staffPin) role="staff";
-  else{alert("Wrong PIN");return login();}
+  let p = prompt("Enter PIN");
+  if(p === localStorage.ownerPin) role = "owner";
+  else if(p === localStorage.staffPin) role = "staff";
+  else { alert("Wrong PIN"); return login(); }
+
+  // Hide Change PIN button for staff
+  setTimeout(()=>{
+    let btn = document.getElementById("changePinBtn");
+    if(btn && role !== "owner"){
+      btn.style.display = "none";
+    }
+  }, 0);
+
   dashboard();
 }
 
@@ -416,8 +425,19 @@ fileInput.onchange=e=>{
 
 /* PIN CHANGE */
 function changePin(){
-  let p=prompt("New Owner PIN");
-  if(p) localStorage.ownerPin=p;
+  if(role !== "owner"){
+    alert("Access denied");
+    return;
+  }
+
+  let newPin = prompt("Enter NEW Owner PIN");
+  if(!newPin || newPin.length < 4){
+    alert("Invalid PIN");
+    return;
+  }
+
+  localStorage.ownerPin = newPin;
+  alert("Owner PIN updated successfully");
 }
 </script>
 
