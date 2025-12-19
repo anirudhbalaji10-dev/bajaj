@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Bajaj Business Manager</title>
+<title>Balaji Motors – Anavatti</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -24,6 +24,20 @@ body.dark{
   --card:#1e1e1e;
   --text:#fff;
 }
+
+/* SPLASH */
+#splash{
+  position:fixed;inset:0;
+  background:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
+#splash img{width:160px}
+#splash h2{color:var(--blue);margin:10px 0 0}
+#splash small{letter-spacing:1px}
 
 /* MOBILE HEADER */
 .mobileHeader{
@@ -76,6 +90,16 @@ body.dark{
 .reduce{background:var(--danger)}
 .edit{background:#455a64}
 .delete{background:#000}
+.whatsapp{
+  display:inline-block;
+  margin-top:6px;
+  padding:6px 10px;
+  background:#25D366;
+  color:#fff;
+  border-radius:6px;
+  text-decoration:none;
+  font-size:13px;
+}
 
 /* RESPONSIVE */
 @media(max-width:768px){
@@ -93,23 +117,32 @@ body.dark{
 
 <body>
 
-<div class="mobileHeader">
-  <button onclick="toggleSidebar()">☰</button>
-  <b>Bajaj Business</b>
+<!-- SPLASH -->
+<div id="splash">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6e/Bajaj_Auto_Logo.svg">
+  <h2>Balaji Motors</h2>
+  <small>Anavatti</small>
 </div>
 
-<div class="app">
+<div class="mobileHeader">
+  <button onclick="toggleSidebar()">☰</button>
+  <b>Balaji Motors</b>
+</div>
+
+<div class="app" id="app" style="display:none">
+
   <div class="sidebar">
-    <h2>Bajaj<br>Manager</h2>
+    <h2>Balaji<br>Motors</h2>
     <button onclick="nav(dashboard)">🏠 Dashboard</button>
     <button onclick="nav(stockView)">📦 Stock</button>
     <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
-    <button onclick="nav(customerSearch)">🔍 Search</button>
+    <button onclick="nav(searchView)">🔍 Search</button>
     <button onclick="nav(invoiceView)">🧾 Invoice / GST</button>
-    <button onclick="backup()">💾 Export (Sync)</button>
-    <button onclick="restore()">♻️ Import (Sync)</button>
+    <button onclick="exportData()">📤 Export</button>
+    <button onclick="importData()">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
-    <button onclick="clearHistoryOnce(this)">🧹 Clear History (Once)</button>
+    <button onclick="nav(historyView)">📜 History</button>
+    <button onclick="changePin()">🔐 Change PIN</button>
   </div>
 
   <div class="main" id="main"></div>
@@ -118,13 +151,21 @@ body.dark{
 <input type="file" id="fileInput" hidden>
 
 <script>
-/* BASIC SETUP */
-if(!localStorage.pin) localStorage.pin="2580";
-if(!localStorage.role) localStorage.role="owner";
-let stock = JSON.parse(localStorage.stock||"{}");
-let history = JSON.parse(localStorage.history||"[]");
+/* SPLASH */
+setTimeout(()=>{
+  splash.style.display="none";
+  app.style.display="flex";
+  login();
+},2500);
 
-/* UI */
+/* THEME */
+if(localStorage.theme==="dark") document.body.classList.add("dark");
+function toggleTheme(){
+  document.body.classList.toggle("dark");
+  localStorage.theme=document.body.classList.contains("dark")?"dark":"light";
+}
+
+/* SIDEBAR */
 function toggleSidebar(){
   document.querySelector(".sidebar").classList.toggle("show");
 }
@@ -132,42 +173,58 @@ function nav(fn){
   fn();
   if(innerWidth<=768) document.querySelector(".sidebar").classList.remove("show");
 }
-if(localStorage.theme==="dark") document.body.classList.add("dark");
-function toggleTheme(){
-  document.body.classList.toggle("dark");
-  localStorage.theme=document.body.classList.contains("dark")?"dark":"light";
+
+/* SECURITY */
+if(!localStorage.ownerPin) localStorage.ownerPin="2580";
+if(!localStorage.staffPin) localStorage.staffPin="1111";
+let role="owner";
+
+function login(){
+  let p=prompt("Enter PIN");
+  if(p===localStorage.ownerPin) role="owner";
+  else if(p===localStorage.staffPin) role="staff";
+  else{alert("Wrong PIN");return login();}
+  dashboard();
 }
+
+/* DATA */
+let stock=JSON.parse(localStorage.stock||"{}");
+let history=JSON.parse(localStorage.history||"[]");
+if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
 
 /* DASHBOARD */
 function dashboard(){
-  let m=new Date().getMonth(),y=new Date().getFullYear();
+  let d=new Date(),m=d.getMonth(),y=d.getFullYear();
   let list=history.filter(x=>{
-    let d=new Date(x.time);
-    return d.getMonth()==m && d.getFullYear()==y;
+    let t=new Date(x.time);
+    return t.getMonth()==m&&t.getFullYear()==y;
   });
-  let uniq=new Set(list.map(x=>x.phone));
+  let cust=new Set(list.map(x=>x.phone));
   main.innerHTML=`
   <div class="card">
-    <h3>${m+1}/${y} Summary</h3>
-    Services: ${list.length}<br>
-    Customers: ${uniq.size}
+    <h3>${d.toLocaleString("default",{month:"long"})} ${y}</h3>
+    Total Services: ${list.length}<br>
+    Customers: ${cust.size}<br>
+    Last Service: ${list[0]?.time||"—"}
   </div>`;
 }
 
 /* STOCK */
 function stockView(){
-  let h=`<div class="card"><button onclick="addStock()">➕ Add Stock</button></div>`;
+  let h=`<div class="card">`;
+  if(role==="owner") h+=`<button onclick="addStock()">➕ Add Stock</button>`;
+  h+=`</div>`;
   for(let i in stock){
     let low=stock[i].qty<=5?'<span class="low"> LOW</span>':'';
     h+=`
     <div class="card">
       <b>${i}</b><br>
-      Qty: ${stock[i].qty}${low}<br>
-      Cost: ₹${stock[i].cost}
+      Qty: ${stock[i].qty}${low}
       <div class="btnRow">
-        <button class="reduce" onclick="useStock('${i}')">Use</button>
+        <button class="reduce" onclick="useStock('${i}')">Reduce</button>
+        ${role==="owner"?`
         <button class="edit" onclick="editStock('${i}')">Edit</button>
-        <button class="delete" onclick="delStock('${i}')">Delete</button>
+        <button class="delete" onclick="delStock('${i}')">Delete</button>`:""}
       </div>
     </div>`;
   }
@@ -175,21 +232,20 @@ function stockView(){
   main.innerHTML=h;
   localStorage.stock=JSON.stringify(stock);
 }
+
 function addStock(){
-  let n=prompt("Name"),q=+prompt("Qty"),c=+prompt("Cost price");
+  let n=prompt("Spare name"),q=+prompt("Qty"),c=+prompt("Cost");
   if(!n||q<0) return;
   stock[n]={qty:q,cost:c};
   stockView();
 }
 function editStock(i){
-  if(prompt("Owner PIN")!==localStorage.pin) return;
-  stock[i].qty=+prompt("Qty");
-  stock[i].cost=+prompt("Cost");
+  let q=+prompt("Qty"); if(q<0) return;
+  stock[i].qty=q;
   stockView();
 }
 function delStock(i){
-  if(prompt("Owner PIN")!==localStorage.pin) return;
-  delete stock[i]; stockView();
+  if(confirm("Delete?")){delete stock[i];stockView();}
 }
 function useStock(i){
   let q=+prompt("Qty");
@@ -198,17 +254,19 @@ function useStock(i){
   let vehicle=prompt("Vehicle");
   if(stock[i].qty<q) return;
   stock[i].qty-=q;
-  history.unshift({cust,phone,vehicle,item:i,qty:q,time:new Date().toLocaleString()});
+  let time=new Date().toLocaleString();
+  history.unshift({cust,phone,vehicle,item:i,qty:q,time});
   localStorage.history=JSON.stringify(history);
+  window.open(`https://wa.me/91${phone}?text=Hello ${cust}, your vehicle ${vehicle} service is completed at Balaji Motors, Anavatti. Thank you.`);
   stockView();
 }
 
-/* MONTHLY CUSTOMERS (YEARS SUPPORTED) */
+/* MONTHLY */
 function monthlyCustomers(){
-  let y=+prompt("Year"), m=+prompt("Month (1-12)")-1;
+  let y=+prompt("Year"),m=+prompt("Month (1-12)")-1;
   let list=history.filter(x=>{
     let d=new Date(x.time);
-    return d.getFullYear()==y && d.getMonth()==m;
+    return d.getFullYear()==y&&d.getMonth()==m;
   });
   if(!list.length){main.innerHTML=`<div class="card">No data</div>`;return;}
   let h=`<div class="card"><h3>${m+1}/${y}</h3></div>`;
@@ -219,9 +277,12 @@ function monthlyCustomers(){
 }
 
 /* SEARCH */
-function customerSearch(){
-  let q=prompt("Phone or Vehicle");
-  let list=history.filter(x=>x.phone==q||x.vehicle==q);
+function searchView(){
+  let q=prompt("Customer name / Vehicle");
+  let list=history.filter(x=>
+    x.cust.toLowerCase().startsWith(q.toLowerCase()) ||
+    x.vehicle.toLowerCase().includes(q.toLowerCase())
+  );
   if(!list.length){main.innerHTML=`<div class="card">No record</div>`;return;}
   let h=`<div class="card"><h3>Results</h3></div>`;
   list.forEach(x=>{
@@ -230,31 +291,43 @@ function customerSearch(){
   main.innerHTML=h;
 }
 
-/* INVOICE / GST */
+/* INVOICE */
 function invoiceView(){
+  let no=localStorage.invoiceNo.padStart(4,"0");
+  localStorage.invoiceNo=+localStorage.invoiceNo+1+"";
   let total=0;
-  let h=`<div class="card"><h3>Invoice</h3>`;
   history.slice(0,5).forEach(x=>{
-    let amt=x.qty*(stock[x.item]?.cost||0);
-    total+=amt;
-    h+=`${x.item} x${x.qty} = ₹${amt}<br>`;
+    total+=x.qty*(stock[x.item]?.cost||0);
   });
   let gst=total*0.18;
-  h+=`<br>Total: ₹${total}<br>GST 18%: ₹${gst}<br><b>Grand: ₹${total+gst}</b></div>`;
+  main.innerHTML=`
+  <div class="card">
+    Invoice No: BM-${no}<br>
+    Total: ₹${total}<br>
+    GST (18%): ₹${gst}<br>
+    <b>Grand: ₹${total+gst}</b>
+  </div>`;
+}
+
+/* HISTORY */
+function historyView(){
+  if(!history.length){main.innerHTML=`<div class="card">No history</div>`;return;}
+  let h=`<div class="card"><h3>History</h3></div>`;
+  history.forEach(x=>{
+    h+=`<div class="card">${x.cust} (${x.phone})<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
+  });
   main.innerHTML=h;
 }
 
-/* EXPORT / IMPORT (MULTI DEVICE SYNC) */
-function backup(){
-  let data={stock,history};
-  let b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+/* EXPORT / IMPORT */
+function exportData(){
+  let b=new Blob([JSON.stringify({stock,history},null,2)],{type:"application/json"});
   let a=document.createElement("a");
   a.href=URL.createObjectURL(b);
-  a.download="bajaj-sync.json";
+  a.download="balaji-motors-backup.json";
   a.click();
 }
-function restore(){
-  if(prompt("Owner PIN")!==localStorage.pin) return;
+function importData(){
   fileInput.click();
 }
 fileInput.onchange=e=>{
@@ -265,22 +338,16 @@ fileInput.onchange=e=>{
     history=d.history||[];
     localStorage.stock=JSON.stringify(stock);
     localStorage.history=JSON.stringify(history);
-    alert("Synced");
     dashboard();
   };
   r.readAsText(e.target.files[0]);
 };
 
-/* CLEAR HISTORY ONCE */
-function clearHistoryOnce(btn){
-  if(!confirm("Clear history once?"))return;
-  history=[];
-  localStorage.history="[]";
-  btn.remove();
-  dashboard();
+/* PIN CHANGE */
+function changePin(){
+  let p=prompt("New Owner PIN");
+  if(p) localStorage.ownerPin=p;
 }
-
-dashboard();
 </script>
 
 </body>
