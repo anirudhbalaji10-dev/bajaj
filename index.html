@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bajaj Spare Stock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root{
+  --blue:#0a2e5c;
+  --bg:#f2f5f9;
+  --card:#ffffff;
+  --danger:#c62828;
+}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:var(--bg);
+}
+
+/* SPLASH */
+#splash{
+  position:fixed; inset:0;
+  background:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
+#splash img{ width:180px }
+.brand{ color:var(--blue); letter-spacing:2px; font-weight:bold }
+.line{ width:80px; height:3px; background:var(--blue); margin:6px 0 }
+
+/* APP */
+#app{ display:none; padding:10px }
+h2{ text-align:center; color:var(--blue) }
+
+.menu{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  margin-bottom:8px;
+}
+.menu button{
+  background:var(--blue);
+  color:white;
+  border:none;
+  border-radius:8px;
+  padding:10px 14px;
+  white-space:nowrap;
+}
+
+.searchBox{
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  margin-bottom:10px;
+}
+
+.item{
+  background:var(--card);
+  border-radius:10px;
+  padding:15px;
+  margin-bottom:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+.item b{ color:var(--blue) }
+
+.low{ color:var(--danger); font-weight:bold }
+
+.btnRow{
+  display:flex;
+  gap:6px;
+  margin-top:8px;
+}
+.btnRow button{
+  flex:1;
+  padding:8px;
+  border:none;
+  border-radius:6px;
+  color:white;
+}
+.reduce{ background:var(--danger) }
+.edit{ background:#455a64 }
+.delete{ background:#000 }
+
+.box{
+  background:var(--card);
+  padding:12px;
+  border-radius:8px;
+  margin-bottom:8px;
+}
+.small{ font-size:13px; color:#555 }
+
+.whatsapp{
+  display:inline-block;
+  margin-top:6px;
+  padding:6px 10px;
+  background:#25D366;
+  color:white;
+  border-radius:6px;
+  font-size:13px;
+  text-decoration:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6e/Bajaj_Auto_Logo.svg">
+  <div class="brand">BAJAJ AUTO</div>
+  <div class="line"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<h2>Bike Spare Stock</h2>
+
+<div class="menu">
+  <button onclick="addPart()">➕ Add</button>
+  <button onclick="dailySummary()">📅 Today</button>
+  <button onclick="showHistory()">📜 History</button>
+  <button onclick="backupData()">💾 Backup</button>
+  <button onclick="triggerRestore()">♻️ Restore</button>
+</div>
+
+<input class="searchBox" placeholder="Search spare part..."
+       oninput="renderStock(this.value)">
+
+<div id="stockList"></div>
+<div id="extraSection"></div>
+
+<input type="file" id="restoreFile" accept=".json" style="display:none">
+</div>
+
+<script>
+/* SPLASH */
+setTimeout(()=>{
+  splash.style.display="none";
+  app.style.display="block";
+},2000);
+
+/* PIN */
+if(!localStorage.getItem("pin")) localStorage.setItem("pin","2580");
+const getPin=()=>localStorage.getItem("pin");
+
+/* DATA */
+let stock = JSON.parse(localStorage.getItem("stock")) || {
+  "Engine Oil":20,
+  "Brake Shoe":15,
+  "Clutch Cable":10
+};
+function getHistory(){
+  return JSON.parse(localStorage.getItem("history")) || [];
+}
+
+/* STOCK */
+function renderStock(search=""){
+  let html="";
+  for(let item in stock){
+    if(!item.toLowerCase().includes(search.toLowerCase())) continue;
+    let low = stock[item]<=5 ? "<span class='low'> ⚠️ LOW</span>" : "";
+    html+=`
+      <div class="item">
+        <b>${item}</b><br>
+        Available: ${stock[item]} ${low}
+        <div class="btnRow">
+          <button class="reduce" onclick="reduceStock('${item}')">Reduce</button>
+          <button class="edit" onclick="editStock('${item}')">Edit</button>
+          <button class="delete" onclick="deleteStock('${item}')">Delete</button>
+        </div>
+      </div>`;
+  }
+  stockList.innerHTML=html;
+  localStorage.setItem("stock",JSON.stringify(stock));
+}
+
+/* CRUD */
+function addPart(){
+  let n=prompt("Spare name:");
+  let q=prompt("Initial quantity:");
+  if(!n||q<0||stock[n])return;
+  stock[n]=Number(q);
+  renderStock();
+}
+
+function editStock(item){
+  if(prompt("Owner PIN:")!==getPin())return;
+  let q=prompt("New quantity:");
+  if(q<0)return;
+  stock[item]=Number(q);
+  renderStock();
+}
+
+function deleteStock(item){
+  if(prompt("Owner PIN:")!==getPin())return;
+  if(confirm("Delete "+item+"?")){
+    delete stock[item];
+    renderStock();
+  }
+}
+
+function reduceStock(item){
+  let qty=prompt("Quantity:");
+  let cust=prompt("Customer name:");
+  let phone=prompt("Phone (10 digits):");
+  let vehicle=prompt("Vehicle number:");
+  if(!/^\d{10}$/.test(phone)||stock[item]<qty)return;
+
+  stock[item]-=qty;
+  let h=getHistory();
+  h.unshift({item,qty,cust,phone,vehicle,time:new Date().toLocaleString()});
+  localStorage.setItem("history",JSON.stringify(h));
+  renderStock();
+  showHistory();
+}
+
+/* VIEWS */
+function showHistory(){
+  let h=getHistory();
+  if(h.length===0){
+    extraSection.innerHTML="<div class='box'>No history available</div>";
+    return;
+  }
+  let html="<h3>History</h3>";
+  h.forEach(x=>{
+    html+=`
+      <div class="box">
+        <b>${x.cust}</b> (${x.phone})<br>
+        Vehicle: ${x.vehicle}<br>
+        ${x.item} - ${x.qty}<br>
+        <span class="small">${x.time}</span><br>
+        <a class="whatsapp" target="_blank"
+           href="https://wa.me/91${x.phone}?text=Hello%20${x.cust},%20your%20bike%20${x.vehicle}%20service%20is%20completed.%20Thank%20you%20for%20visiting%20Bajaj%20Service.">
+           WhatsApp
+        </a>
+      </div>`;
+  });
+  extraSection.innerHTML=html;
+}
+
+function dailySummary(){
+  let h=getHistory();
+  let d=new Date().toDateString();
+  let t=h.filter(x=>new Date(x.time).toDateString()===d);
+  let cust=[...new Set(t.map(x=>x.phone))];
+  extraSection.innerHTML=`
+    <div class="box"><b>Customers Today:</b> ${cust.length}</div>
+    <div class="box"><b>Spares Used Today:</b> ${t.length}</div>`;
+}
+
+/* BACKUP */
+function backupData(){
+  let data={
+    stock:stock,
+    history:getHistory(),
+    backupTime:new Date().toLocaleString()
+  };
+  let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="bajaj-backup.json";
+  a.click();
+}
+
+/* RESTORE */
+function triggerRestore(){
+  if(prompt("Owner PIN:")!==getPin())return;
+  restoreFile.click();
+}
+
+restoreFile.onchange=function(){
+  let file=this.files[0];
+  if(!file)return;
+  let reader=new FileReader();
+  reader.onload=function(e){
+    let data=JSON.parse(e.target.result);
+    if(!data.stock||!data.history){
+      alert("Invalid backup file");
+      return;
+    }
+    stock=data.stock;
+    localStorage.setItem("stock",JSON.stringify(stock));
+    localStorage.setItem("history",JSON.stringify(data.history));
+    renderStock();
+    showHistory();
+    alert("Backup restored successfully");
+  };
+  reader.readAsText(file);
+};
+
+renderStock();
+showHistory();
+</script>
+
+</body>
+</html>
