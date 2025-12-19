@@ -444,7 +444,6 @@ function changePin(){
   alert("Owner PIN updated successfully");
 }
 function generateTodayBill(){
-  let billNo = "BM-" + localStorage.billNo.padStart(4,"0");
   let phone = prompt("Customer phone number:");
   let vehicle = prompt("Vehicle number:");
   let labour = +prompt("Labour charge (₹):") || 0;
@@ -453,6 +452,9 @@ function generateTodayBill(){
     alert("Details required");
     return;
   }
+
+  // ✅ USE invoiceNo ONLY
+  let billNo = "BM-" + localStorage.invoiceNo.padStart(4,"0");
 
   let today = new Date().toDateString();
 
@@ -482,15 +484,15 @@ function generateTodayBill(){
         <td>₹${amount}</td>
       </tr>`;
   });
+
   if(labour > 0){
-  rows += `
-    <tr>
-      <td>Labour Charge</td>
-      <td>—</td>
-      <td>₹${labour}</td>
-    </tr>`;
-  
-}
+    rows += `
+      <tr>
+        <td>Labour Charge</td>
+        <td>—</td>
+        <td>₹${labour}</td>
+      </tr>`;
+  }
 
   main.innerHTML = `
     <div class="card" id="billArea">
@@ -521,8 +523,11 @@ function generateTodayBill(){
       <button onclick="dashboard()">⬅ Back</button>
     </div>
   `;
+
+  // ✅ increment SAME counter
   localStorage.invoiceNo = (+localStorage.invoiceNo + 1).toString();
 }
+
 function printBill(){
   window.print();
 }
