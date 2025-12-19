@@ -10,70 +10,89 @@
   --blue:#0a2e5c;
   --bg:#f2f5f9;
   --card:#ffffff;
+  --text:#000;
   --danger:#c62828;
 }
 body{
   margin:0;
   font-family:Arial,sans-serif;
   background:var(--bg);
+  color:var(--text);
+}
+body.dark{
+  --bg:#121212;
+  --card:#1e1e1e;
+  --text:#ffffff;
 }
 
-/* SPLASH */
-#splash{
-  position:fixed; inset:0;
-  background:white;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  z-index:9999;
-}
-#splash img{ width:180px }
-.brand{ color:var(--blue); letter-spacing:2px; font-weight:bold }
-.line{ width:80px; height:3px; background:var(--blue); margin:6px 0 }
-
-/* APP */
-#app{ display:none; padding:10px }
-h2{ text-align:center; color:var(--blue) }
-
-.menu{
-  display:flex;
-  gap:8px;
-  overflow-x:auto;
-  margin-bottom:8px;
-}
-.menu button{
+/* MOBILE HEADER */
+.mobileHeader{
+  display:none;
   background:var(--blue);
   color:white;
-  border:none;
-  border-radius:8px;
-  padding:10px 14px;
-  white-space:nowrap;
-}
-
-.searchBox{
-  width:100%;
   padding:10px;
-  border-radius:8px;
-  border:1px solid #ccc;
-  margin-bottom:10px;
+  align-items:center;
+  gap:10px;
+}
+.mobileHeader button{
+  background:none;
+  border:none;
+  color:white;
+  font-size:22px;
 }
 
-.item{
-  background:var(--card);
-  border-radius:10px;
+/* LAYOUT */
+.app{
+  display:flex;
+  height:100vh;
+}
+
+/* SIDEBAR */
+.sidebar{
+  width:240px;
+  background:var(--blue);
+  color:white;
   padding:15px;
-  margin-bottom:10px;
+  display:flex;
+  flex-direction:column;
+}
+.sidebar h2{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+.nav button{
+  background:none;
+  border:none;
+  color:white;
+  text-align:left;
+  padding:10px;
+  border-radius:6px;
+  margin-bottom:5px;
+}
+.nav button:hover{
+  background:rgba(255,255,255,0.15);
+}
+
+/* MAIN */
+.main{
+  flex:1;
+  padding:20px;
+  overflow-y:auto;
+}
+.card{
+  background:var(--card);
+  padding:15px;
+  border-radius:10px;
+  margin-bottom:12px;
   box-shadow:0 2px 6px rgba(0,0,0,0.1);
 }
-.item b{ color:var(--blue) }
-
-.low{ color:var(--danger); font-weight:bold }
+.low{color:var(--danger);font-weight:bold}
 
 .btnRow{
   display:flex;
   gap:6px;
-  margin-top:8px;
+  margin-top:6px;
 }
 .btnRow button{
   flex:1;
@@ -82,17 +101,9 @@ h2{ text-align:center; color:var(--blue) }
   border-radius:6px;
   color:white;
 }
-.reduce{ background:var(--danger) }
-.edit{ background:#455a64 }
-.delete{ background:#000 }
-
-.box{
-  background:var(--card);
-  padding:12px;
-  border-radius:8px;
-  margin-bottom:8px;
-}
-.small{ font-size:13px; color:#555 }
+.reduce{background:var(--danger)}
+.edit{background:#455a64}
+.delete{background:#000}
 
 .whatsapp{
   display:inline-block;
@@ -101,165 +112,179 @@ h2{ text-align:center; color:var(--blue) }
   background:#25D366;
   color:white;
   border-radius:6px;
-  font-size:13px;
   text-decoration:none;
+  font-size:13px;
+}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .mobileHeader{display:flex}
+  .sidebar{
+    position:fixed;
+    left:-260px;
+    top:0;
+    height:100%;
+    transition:.3s;
+    z-index:1000;
+  }
+  .sidebar.show{left:0}
+  .app{flex-direction:column}
 }
 </style>
 </head>
 
 <body>
 
-<!-- SPLASH -->
-<div id="splash">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6e/Bajaj_Auto_Logo.svg">
-  <div class="brand">BAJAJ AUTO</div>
-  <div class="line"></div>
+<div class="mobileHeader">
+  <button onclick="toggleSidebar()">☰</button>
+  <b>Bajaj Spare Stock</b>
 </div>
 
-<!-- APP -->
-<div id="app">
-<h2>Bike Spare Stock</h2>
+<div class="app">
 
-<div class="menu">
-  <button onclick="addPart()">➕ Add</button>
-  <button onclick="dailySummary()">📅 Today</button>
-  <button onclick="showHistory()">📜 History</button>
-  <button onclick="backupData()">💾 Backup</button>
-  <button onclick="triggerRestore()">♻️ Restore</button>
+  <div class="sidebar">
+    <h2>Bajaj<br>Stock</h2>
+    <div class="nav">
+      <button onclick="navAction(showDashboard)">🏠 Dashboard</button>
+      <button onclick="navAction(showStock)">📦 Stock</button>
+      <button onclick="navAction(showHistory)">📜 History</button>
+      <button onclick="toggleTheme()">🌙 Toggle Theme</button>
+      <button onclick="backupData()">💾 Backup</button>
+      <button onclick="triggerRestore()">♻️ Restore</button>
+      <button onclick="clearHistoryOnce(this)">🧹 Clear History (Once)</button>
+    </div>
+  </div>
+
+  <div class="main" id="mainContent"></div>
 </div>
-
-<input class="searchBox" placeholder="Search spare part..."
-       oninput="renderStock(this.value)">
-
-<div id="stockList"></div>
-<div id="extraSection"></div>
 
 <input type="file" id="restoreFile" accept=".json" style="display:none">
-</div>
 
 <script>
-/* SPLASH */
-setTimeout(()=>{
-  splash.style.display="none";
-  app.style.display="block";
-},2000);
+/* THEME */
+if(localStorage.getItem("theme")==="dark"){
+  document.body.classList.add("dark");
+}
+function toggleTheme(){
+  document.body.classList.toggle("dark");
+  localStorage.setItem("theme",
+    document.body.classList.contains("dark")?"dark":"light");
+}
 
-/* PIN */
-if(!localStorage.getItem("pin")) localStorage.setItem("pin","2580");
-const getPin=()=>localStorage.getItem("pin");
+/* SIDEBAR */
+function toggleSidebar(){
+  document.querySelector(".sidebar").classList.toggle("show");
+}
+function navAction(fn){
+  fn();
+  if(window.innerWidth<=768){
+    document.querySelector(".sidebar").classList.remove("show");
+  }
+}
 
 /* DATA */
-let stock = JSON.parse(localStorage.getItem("stock")) || {
-  "Engine Oil":20,
-  "Brake Shoe":15,
-  "Clutch Cable":10
-};
+if(!localStorage.getItem("pin")) localStorage.setItem("pin","2580");
+let stock=JSON.parse(localStorage.getItem("stock"))||{};
 function getHistory(){
-  return JSON.parse(localStorage.getItem("history")) || [];
+  return JSON.parse(localStorage.getItem("history"))||[];
+}
+
+/* DASHBOARD */
+function showDashboard(){
+  mainContent.innerHTML=`
+    <div class="card">
+      <h3>Dashboard</h3>
+      <p>Welcome to Bajaj Spare Stock Management</p>
+    </div>`;
 }
 
 /* STOCK */
-function renderStock(search=""){
-  let html="";
-  for(let item in stock){
-    if(!item.toLowerCase().includes(search.toLowerCase())) continue;
-    let low = stock[item]<=5 ? "<span class='low'> ⚠️ LOW</span>" : "";
+function showStock(){
+  let html=`<div class="card"><button onclick="addPart()">➕ Add Spare</button></div>`;
+  for(let i in stock){
+    let low=stock[i]<=5?'<span class="low"> ⚠ LOW</span>':'';
     html+=`
-      <div class="item">
-        <b>${item}</b><br>
-        Available: ${stock[item]} ${low}
+      <div class="card">
+        <b>${i}</b><br>
+        Available: ${stock[i]} ${low}
         <div class="btnRow">
-          <button class="reduce" onclick="reduceStock('${item}')">Reduce</button>
-          <button class="edit" onclick="editStock('${item}')">Edit</button>
-          <button class="delete" onclick="deleteStock('${item}')">Delete</button>
+          <button class="reduce" onclick="reduceStock('${i}')">Reduce</button>
+          <button class="edit" onclick="editStock('${i}')">Edit</button>
+          <button class="delete" onclick="deleteStock('${i}')">Delete</button>
         </div>
       </div>`;
   }
-  stockList.innerHTML=html;
+  if(!Object.keys(stock).length)
+    html+=`<div class="card">No stock added</div>`;
+  mainContent.innerHTML=html;
   localStorage.setItem("stock",JSON.stringify(stock));
 }
 
-/* CRUD */
 function addPart(){
   let n=prompt("Spare name:");
-  let q=prompt("Initial quantity:");
+  let q=prompt("Quantity:");
   if(!n||q<0||stock[n])return;
   stock[n]=Number(q);
-  renderStock();
+  showStock();
 }
-
-function editStock(item){
-  if(prompt("Owner PIN:")!==getPin())return;
-  let q=prompt("New quantity:");
+function editStock(i){
+  if(prompt("Owner PIN")!==localStorage.getItem("pin"))return;
+  let q=prompt("New qty:");
   if(q<0)return;
-  stock[item]=Number(q);
-  renderStock();
+  stock[i]=Number(q);
+  showStock();
 }
-
-function deleteStock(item){
-  if(prompt("Owner PIN:")!==getPin())return;
-  if(confirm("Delete "+item+"?")){
-    delete stock[item];
-    renderStock();
-  }
+function deleteStock(i){
+  if(prompt("Owner PIN")!==localStorage.getItem("pin"))return;
+  delete stock[i];
+  showStock();
 }
-
-function reduceStock(item){
-  let qty=prompt("Quantity:");
+function reduceStock(i){
+  let qty=prompt("Qty:");
   let cust=prompt("Customer name:");
   let phone=prompt("Phone (10 digits):");
-  let vehicle=prompt("Vehicle number:");
-  if(!/^\d{10}$/.test(phone)||stock[item]<qty)return;
-
-  stock[item]-=qty;
+  let vehicle=prompt("Vehicle no:");
+  if(!/^\d{10}$/.test(phone)||stock[i]<qty)return;
+  stock[i]-=qty;
   let h=getHistory();
-  h.unshift({item,qty,cust,phone,vehicle,time:new Date().toLocaleString()});
+  h.unshift({i,qty,cust,phone,vehicle,time:new Date().toLocaleString()});
   localStorage.setItem("history",JSON.stringify(h));
-  renderStock();
-  showHistory();
+  showStock();
 }
 
-/* VIEWS */
+/* HISTORY */
 function showHistory(){
   let h=getHistory();
-  if(h.length===0){
-    extraSection.innerHTML="<div class='box'>No history available</div>";
+  if(!h.length){
+    mainContent.innerHTML=`<div class="card">No history</div>`;
     return;
   }
-  let html="<h3>History</h3>";
+  let html=`<div class="card"><h3>History</h3></div>`;
   h.forEach(x=>{
     html+=`
-      <div class="box">
+      <div class="card">
         <b>${x.cust}</b> (${x.phone})<br>
-        Vehicle: ${x.vehicle}<br>
-        ${x.item} - ${x.qty}<br>
-        <span class="small">${x.time}</span><br>
-        <a class="whatsapp" target="_blank"
-           href="https://wa.me/91${x.phone}?text=Hello%20${x.cust},%20your%20bike%20${x.vehicle}%20service%20is%20completed.%20Thank%20you%20for%20visiting%20Bajaj%20Service.">
-           WhatsApp
-        </a>
+        ${x.vehicle}<br>
+        ${x.i} - ${x.qty}<br>
+        <small>${x.time}</small><br>
+        <a class="whatsapp"
+        href="https://wa.me/91${x.phone}" target="_blank">WhatsApp</a>
       </div>`;
   });
-  extraSection.innerHTML=html;
+  mainContent.innerHTML=html;
 }
 
-function dailySummary(){
-  let h=getHistory();
-  let d=new Date().toDateString();
-  let t=h.filter(x=>new Date(x.time).toDateString()===d);
-  let cust=[...new Set(t.map(x=>x.phone))];
-  extraSection.innerHTML=`
-    <div class="box"><b>Customers Today:</b> ${cust.length}</div>
-    <div class="box"><b>Spares Used Today:</b> ${t.length}</div>`;
+/* CLEAR HISTORY ONCE */
+function clearHistoryOnce(btn){
+  if(!confirm("Clear history once?"))return;
+  localStorage.removeItem("history");
+  btn.remove();
+  showDashboard();
 }
 
 /* BACKUP */
 function backupData(){
-  let data={
-    stock:stock,
-    history:getHistory(),
-    backupTime:new Date().toLocaleString()
-  };
+  let data={stock,history:getHistory(),time:new Date().toLocaleString()};
   let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   let a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -269,32 +294,23 @@ function backupData(){
 
 /* RESTORE */
 function triggerRestore(){
-  if(prompt("Owner PIN:")!==getPin())return;
+  if(prompt("Owner PIN")!==localStorage.getItem("pin"))return;
   restoreFile.click();
 }
-
 restoreFile.onchange=function(){
-  let file=this.files[0];
-  if(!file)return;
-  let reader=new FileReader();
-  reader.onload=function(e){
-    let data=JSON.parse(e.target.result);
-    if(!data.stock||!data.history){
-      alert("Invalid backup file");
-      return;
-    }
-    stock=data.stock;
+  let r=new FileReader();
+  r.onload=e=>{
+    let d=JSON.parse(e.target.result);
+    stock=d.stock||{};
     localStorage.setItem("stock",JSON.stringify(stock));
-    localStorage.setItem("history",JSON.stringify(data.history));
-    renderStock();
-    showHistory();
-    alert("Backup restored successfully");
+    localStorage.setItem("history",JSON.stringify(d.history||[]));
+    alert("Restored");
+    showDashboard();
   };
-  reader.readAsText(file);
+  r.readAsText(this.files[0]);
 };
 
-renderStock();
-showHistory();
+showDashboard();
 </script>
 
 </body>
