@@ -6,6 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
+.big-btn {
+  padding: 16px !important;
+  font-size: 18px !important;
+  border-radius: 10px;
+}
 :root{
   --blue:#0a2e5c;
   --bg:#f2f5f9;
@@ -157,15 +162,20 @@ body.dark{
     <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
     <button onclick="nav(searchView)">🔍 Search</button>
     <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
-    <button onclick="exportData()">📤 Export</button>
-    <button onclick="importData()">📥 Import</button>
+    <button onclick="exportData()"
+      class="adv">📤 Export</button>
+    <button onclick="importData()"
+      class="adv">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
     <button onclick="nav(historyView)">📜 History</button>
     <button onclick="lowStockView()">⚠️ Low Stock</button>
     <button onclick="logout()">🚪 Logout</button>
-    <button onclick="revenueView()">💰 Revenue</button>
-    <button onclick="savedBillsView()">🧾 Saved Bills</button>
-    <button id="changePinBtn" onclick="changePin()">🔐 Change PIN</button>
+    <button onclick="revenueView()"
+      class="adv">💰 Revenue</button>
+    <button onclick="savedBillsView()"
+      class="adv">🧾 Saved Bills</button>
+    <button id="changePinBtn" onclick="changePin()"
+      class="adv">🔐 Change PIN</button>
   </div>
 
   <div class="main" id="main"></div>
@@ -203,11 +213,18 @@ function nav(fn){
 if(!localStorage.ownerPin) localStorage.ownerPin="2580";
 if(!localStorage.staffPin) localStorage.staffPin="1111";
 let role="owner";
+let mode = "advanced";
 
 function login(){
   let p = prompt("Enter PIN");
-  if(p === localStorage.ownerPin) role = "owner";
-  else if(p === localStorage.staffPin) role = "staff";
+  if(p === localStorage.ownerPin){
+  role = "owner";
+  mode = "advanced";
+}
+else if(p === localStorage.staffPin){
+  role = "staff";
+  mode = "simple";
+}
   else { alert("Wrong PIN"); return login(); }
 
   // Hide Change PIN button for staff
@@ -217,7 +234,7 @@ function login(){
       btn.style.display = "none";
     }
   }, 0);
-
+  applyModeUI();
   dashboard();
 }
 
@@ -259,10 +276,18 @@ function stockView(){
       <b>${i}</b><br>
       Qty: ${stock[i].qty}${low}
       <div class="btnRow">
-        <button class="reduce" onclick="useStock('${i}')">Reduce</button>
+        <button class="reduce ${role==='staff'?'big-btn':''}" onclick="useStock('${i}')">
+  Reduce
+</button>
         ${role==="owner"?`
         <button class="edit" onclick="editStock('${i}')">Edit</button>
-        <button class="delete" onclick="delStock('${i}')">Delete</button>`:""}
+        <buttofunction applyModeUI(){
+  if(mode === "simple"){
+    document.querySelectorAll(".adv").forEach(b=>{
+      b.style.display = "none";
+    });
+  }
+}n class="delete" onclick="delStock('${i}')">Delete</button>`:""}
       </div>
     </div>`;
   }
@@ -270,6 +295,7 @@ function stockView(){
   main.innerHTML=h;
   localStorage.stock=JSON.stringify(stock);
 }
+
 
 function addStock(){
   let n=prompt("Spare name"),q=+prompt("Qty"),c=+prompt("Cost");
