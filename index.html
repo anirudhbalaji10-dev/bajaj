@@ -281,13 +281,8 @@ function stockView(){
 </button>
         ${role==="owner"?`
         <button class="edit" onclick="editStock('${i}')">Edit</button>
-        <buttofunction applyModeUI(){
-  if(mode === "simple"){
-    document.querySelectorAll(".adv").forEach(b=>{
-      b.style.display = "none";
-    });
-  }
-}n class="delete" onclick="delStock('${i}')">Delete</button>`:""}
+        <button class="delete" onclick="delStock('${i}')">Delete</button>
+        onclick="delStock('${i}')">Delete</button>`:""}
       </div>
     </div>`;
   }
@@ -777,6 +772,20 @@ function checkBackupReminder(){
 
   if(diffDays >= 7){
     alert("⚠️ Last backup was " + diffDays + " days ago. Please export backup.");
+  }
+}
+function applyModeUI(){
+
+  // 🔹 Reset: show all advanced buttons first
+  document.querySelectorAll(".adv").forEach(btn=>{
+    btn.style.display = "block";
+  });
+
+  // 🔹 Hide advanced buttons for staff
+  if(mode === "simple"){
+    document.querySelectorAll(".adv").forEach(btn=>{
+      btn.style.display = "none";
+    });
   }
 }
 </script>
