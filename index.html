@@ -673,7 +673,7 @@ function generateTodayBill(){
       <tr>
         <td>Labour Charge</td>
         <td>—</td>
-        <td>₹${labour}</td>// 🔹 Save bill for future reprint
+        <td>₹${labour}</td>// 🔹 Save bill for future reprint </tr>`;
 bills.unshift({
   billNo: billNo,
   phone: phone,
@@ -685,7 +685,7 @@ bills.unshift({
 });
 
 localStorage.bills = JSON.stringify(bills);
-      </tr>`;
+     
   }
   
   main.innerHTML = `<div class="card">
