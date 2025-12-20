@@ -162,6 +162,9 @@ body.dark{
     <button onclick="toggleTheme()">🌙 Theme</button>
     <button onclick="nav(historyView)">📜 History</button>
     <button onclick="lowStockView()">⚠️ Low Stock</button>
+    <button onclick="logout()">🚪 Logout</button>
+    <button onclick="revenueView()">💰 Revenue</button>
+    <button onclick="savedBillsView()">🧾 Saved Bills</button>
     <button id="changePinBtn" onclick="changePin()">🔐 Change PIN</button>
   </div>
 
@@ -221,6 +224,7 @@ function login(){
 /* DATA */
 let stock=JSON.parse(localStorage.stock||"{}");
 let history=JSON.parse(localStorage.history||"[]");
+let bills = JSON.parse(localStorage.bills || "[]");
 let customers = JSON.parse(localStorage.customers || "{}");
 if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
 
@@ -361,6 +365,42 @@ Thank you for visiting Bajaj Authorised Service.`;
     </div>
   `;
 }
+function logout(){
+  location.reload();
+}
+//Revenue view
+function revenueView(){
+  let today = new Date();
+  let todayStr = today.toDateString();
+
+  let dailyTotal = 0;
+  let monthlyTotal = 0;
+
+  bills.forEach(b=>{
+    let d = new Date(b.date);
+
+    // Daily
+    if(d.toDateString() === todayStr){
+      dailyTotal += b.total;
+    }
+
+    // Monthly
+    if(
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear()
+    ){
+      monthlyTotal += b.total;
+    }
+  });
+
+  main.innerHTML = `
+    <div class="card">
+      <h3>Revenue Summary</h3>
+      <p><b>Today:</b> ₹${dailyTotal}</p>
+      <p><b>This Month:</b> ₹${monthlyTotal}</p>
+    </div>
+  `;
+}
 
 /* MONTHLY */
 function monthlyCustomers(){
@@ -473,6 +513,80 @@ function changePin(){
   localStorage.ownerPin = newPin;
   alert("Owner PIN updated successfully");
 }
+/*SAVED BILLS*/
+function savedBillsView(){
+  if(!bills.length){
+    main.innerHTML = `<div class="card">No bills available</div>`;
+    return;
+  }
+
+  let h = `<div class="card"><h3>Saved Bills</h3></div>`;
+
+  bills.forEach((b, index)=>{
+    h += `
+      <div class="card">
+        <b>${b.billNo}</b><br>
+        Phone: ${b.phone}<br>
+        Vehicle: ${b.vehicle}<br>
+        Date: ${new Date(b.date).toLocaleString()}<br>
+        Total: ₹${b.total}<br><br>
+        <button onclick="reprintBill(${index})">🖨 Reprint</button>
+      </div>
+    `;
+  });
+
+  main.innerHTML = h;
+}
+function reprintBill(index){
+  let b = bills[index];
+
+  let rows = "";
+  b.items.forEach(i=>{
+    let price = stock[i.item]?.price || 0;
+    let amount = price * i.qty;
+
+    rows += `
+      <tr>
+        <td>${i.item}</td>
+        <td>${i.qty}</td>
+        <td>₹${amount}</td>
+      </tr>
+    `;
+  });
+
+  if(b.labour > 0){
+    rows += `
+      <tr>
+        <td>Labour</td>
+        <td>—</td>
+        <td>₹${b.labour}</td>
+      </tr>
+    `;
+  }
+
+  main.innerHTML = `
+    <div class="card" id="billArea">
+      <h2>Balaji Motors – Anavatti</h2>
+      <p><b>Bill No:</b> ${b.billNo}</p>
+      <p><b>Date:</b> ${new Date(b.date).toLocaleString()}</p>
+      <hr>
+
+      <table width="100%" border="1" cellspacing="0" cellpadding="6">
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Amount</th>
+        </tr>
+        ${rows}
+      </table>
+
+      <h3>Total Amount: ₹${b.total}</h3>
+
+      <button onclick="window.print()">🖨 Print</button>
+      <button onclick="savedBillsView()">⬅ Back</button>
+    </div>
+  `;
+}
 function generateTodayBill(){
   let phone = prompt("Customer phone number:");
   let vehicle = prompt("Vehicle number:");
@@ -520,10 +634,21 @@ function generateTodayBill(){
       <tr>
         <td>Labour Charge</td>
         <td>—</td>
-        <td>₹${labour}</td>
+        <td>₹${labour}</td>// 🔹 Save bill for future reprint
+bills.unshift({
+  billNo: billNo,
+  phone: phone,
+  vehicle: vehicle,
+  date: new Date().toISOString(),
+  items: items,     // service items used
+  labour: labour,
+  total: total
+});
+
+localStorage.bills = JSON.stringify(bills);
       </tr>`;
   }
-
+  
   main.innerHTML = `
     <div class="card" id="billArea">
       <h2>Balaji Motors – Anavatti</h2>
