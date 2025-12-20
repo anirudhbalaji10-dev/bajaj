@@ -222,6 +222,7 @@ function login(){
 }
 
 /* DATA */
+let meta = JSON.parse(localStorage.meta || "{}");
 let stock=JSON.parse(localStorage.stock||"{}");
 let history=JSON.parse(localStorage.history||"[]");
 let bills = JSON.parse(localStorage.bills || "[]");
@@ -243,6 +244,7 @@ function dashboard(){
     Customers: ${cust.size}<br>
     Last Service: ${list[0]?.time||"—"}
   </div>`;
+  checkBackupReminder();
 }
 
 /* STOCK */
@@ -475,6 +477,8 @@ function historyView(){
 
 /* EXPORT / IMPORT */
 function exportData(){
+  meta.lastBackup = new Date().toISOString();
+localStorage.meta = JSON.stringify(meta);
   let b=new Blob([JSON.stringify({stock,history},null,2)],{type:"application/json"});
   let a=document.createElement("a");
   a.href=URL.createObjectURL(b);
@@ -734,6 +738,20 @@ function setCustomLabour(){
   let val = +document.getElementById("customLabour").value || 0;
   selectedLabour = val;
   document.getElementById("labourValue").innerText = val;
+}
+function checkBackupReminder(){
+  if(!meta.lastBackup) return;
+
+  let last = new Date(meta.lastBackup);
+  let now = new Date();
+
+  let diffDays = Math.floor(
+    (now - last) / (1000 * 60 * 60 * 24)
+  );
+
+  if(diffDays >= 7){
+    alert("⚠️ Last backup was " + diffDays + " days ago. Please export backup.");
+  }
 }
 </script>
 
