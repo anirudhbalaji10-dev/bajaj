@@ -227,7 +227,7 @@ let history=JSON.parse(localStorage.history||"[]");
 let bills = JSON.parse(localStorage.bills || "[]");
 let customers = JSON.parse(localStorage.customers || "{}");
 if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
-
+let selectedLabour = 0;
 /* DASHBOARD */
 function dashboard(){
   let d=new Date(),m=d.getMonth(),y=d.getFullYear();
@@ -588,9 +588,9 @@ function reprintBill(index){
   `;
 }
 function generateTodayBill(){
+  selectedLabour = 0;
   let phone = prompt("Customer phone number:");
   let vehicle = prompt("Vehicle number:");
-  let labour = +prompt("Labour charge (₹):") || 0;
 
   if(!phone || !vehicle){
     alert("Details required");
@@ -612,7 +612,7 @@ function generateTodayBill(){
     alert("No service found for today");
     return;
   }
-
+  let labour = selectedLabour;
   let total = labour;
   let rows = "";
 
@@ -649,7 +649,24 @@ localStorage.bills = JSON.stringify(bills);
       </tr>`;
   }
   
-  main.innerHTML = `
+  main.innerHTML = `<div class="card">
+  <h3>Labour Charges</h3>
+
+  <button onclick="setLabour(150)">₹150</button>
+  <button onclick="setLabour(300)">₹300</button>
+  <button onclick="setLabour(500)">₹500</button>
+
+  <br><br>
+
+  Custom:
+  <input type="number" id="customLabour" placeholder="Enter amount">
+  <button onclick="setCustomLabour()">Apply</button>
+
+  <p>
+    <b>Selected Labour:</b> ₹
+    <span id="labourValue">0</span>
+  </p>
+</div>
     <div class="card" id="billArea">
       <h2>Balaji Motors – Anavatti</h2>
       <p><b>Bill No:</b> ${billNo}</p>
@@ -707,6 +724,16 @@ function lowStockView(){
   }
 
   main.innerHTML = h;
+}
+function setLabour(amount){
+  selectedLabour = amount;
+  document.getElementById("labourValue").innerText = amount;
+}
+
+function setCustomLabour(){
+  let val = +document.getElementById("customLabour").value || 0;
+  selectedLabour = val;
+  document.getElementById("labourValue").innerText = val;
 }
 </script>
 
