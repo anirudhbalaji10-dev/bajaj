@@ -145,7 +145,8 @@ body.dark{
 <!-- SPLASH -->
 <div id="splash">
   <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
-  <h1>Welcome to Balaji Motors Anavtti</h1>
+  <h1>Balaji Motors – Anavatti</h1>
+  <small>Bajaj Authorised Service Center</small>
 </div>
 
 <div class="mobileHeader">
@@ -254,13 +255,26 @@ function dashboard(){
     return t.getMonth()==m&&t.getFullYear()==y;
   });
   let cust=new Set(list.map(x=>x.phone));
-  main.innerHTML=`
+  main.innerHTML = `
+  <div class="card">
+    <h2>Balaji Motors – Anavatti</h2>
+    <p>Bajaj Authorised Service Center</p>
+  </div>
+
   <div class="card">
     <h3>${d.toLocaleString("default",{month:"long"})} ${y}</h3>
     Total Services: ${list.length}<br>
     Customers: ${cust.size}<br>
     Last Service: ${list[0]?.time||"—"}
-  </div>`;
+  </div>
+
+  <div class="card">
+  <small>
+    © Balaji Motors – Anavatti<br>
+    Bajaj Authorised Service Center
+  </small>
+</div>
+`;
   checkBackupReminder();
 }
 
