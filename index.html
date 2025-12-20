@@ -13,258 +13,525 @@
   --text:#000;
   --danger:#c62828;
 }
-body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
-body.dark{--bg:#121212;--card:#1e1e1e;--text:#fff}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+body.dark{
+  --bg:#121212;
+  --card:#1e1e1e;
+  --text:#fff;
+}
 
+/* SPLASH */
+#splash{
+  position:fixed;inset:0;
+  background:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
+#splash img{width:160px}
+#splash h2{color:var(--blue);margin:10px 0 0}
+#splash small{letter-spacing:1px}
+
+/* MOBILE HEADER */
+.mobileHeader{
+  display:none;
+  background:var(--blue);
+  color:#fff;
+  padding:10px;
+  align-items:center;
+  gap:10px;
+}
+.mobileHeader button{
+  background:none;border:none;color:#fff;font-size:22px;
+}
+
+/* LAYOUT */
 .app{display:flex;height:100vh}
-.sidebar{width:240px;background:var(--blue);color:#fff;padding:15px}
-.sidebar h2{text-align:center}
+
+/* SIDEBAR */
+.sidebar{
+  width:240px;
+  background:var(--blue);
+  color:#fff;
+  padding:15px;
+}
+.sidebar h2{text-align:center;margin-bottom:15px}
 .sidebar button{
-  width:100%;border:none;background:none;color:#fff;
-  text-align:left;padding:12px;border-radius:6px;margin-bottom:6px;
+  width:100%;
+  background:none;
+  border:none;
+  color:#fff;
+  text-align:left;
+  padding:10px;
+  border-radius:6px;
+  margin-bottom:5px;
 }
 .sidebar button:hover{background:rgba(255,255,255,.15)}
+
+/* MAIN */
 .main{flex:1;padding:20px;overflow:auto}
-
-.card{background:var(--card);padding:15px;border-radius:10px;margin-bottom:12px;
-  box-shadow:0 2px 6px rgba(0,0,0,.1)}
-
-.bigBtn{font-size:18px;padding:15px}
+.card{
+  background:var(--card);
+  padding:15px;
+  border-radius:10px;
+  margin-bottom:12px;
+  box-shadow:0 2px 6px rgba(0,0,0,.1);
+}
 .low{color:var(--danger);font-weight:bold}
+.btnRow{display:flex;gap:6px;margin-top:6px}
+.btnRow button{flex:1;padding:8px;border:none;border-radius:6px;color:#fff}
+.reduce{background:var(--danger)}
+.edit{background:#455a64}
+.delete{background:#000}
+.whatsapp{
+  display:inline-block;
+  margin-top:6px;
+  padding:6px 10px;
+  background:#25D366;
+  color:#fff;
+  border-radius:6px;
+  text-decoration:none;
+  font-size:13px;
+}
 
-.whatsapp{display:inline-block;padding:8px 12px;background:#25D366;
-  color:#fff;border-radius:6px;text-decoration:none}
+/* RESPONSIVE */
+@media (max-width: 768px){
+  .mobileHeader{
+    display:flex;
+  }
 
-.mobileHeader{display:none;background:var(--blue);color:#fff;padding:10px}
-.mobileHeader button{background:none;border:none;color:#fff;font-size:22px}
+  .app{
+    flex-direction:column;
+    height:auto;
+  }
 
-@media(max-width:768px){
-  .mobileHeader{display:flex}
-  .app{flex-direction:column}
-  .sidebar{position:fixed;left:-260px;top:0;height:100%;transition:.3s}
-  .sidebar.show{left:0}
+  .sidebar{
+    position:fixed;
+    top:0;
+    left:-260px;
+    width:260px;
+    height:100vh;
+    z-index:1000;
+    transition:0.3s;
+  }
+
+  .sidebar.show{
+    left:0;
+  }
+
+  .main{
+    width:100%;
+    padding:15px;
+    margin-left:0;
+  }
 }
 </style>
 </head>
 
 <body>
 
+<!-- SPLASH -->
+<div id="splash">
+  <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
+  <h1>Welcome to Balaji Motors Anavtti</h1>
+</div>
+
 <div class="mobileHeader">
   <button onclick="toggleSidebar()">☰</button>
   <b>Balaji Motors</b>
 </div>
 
-<div class="app" id="app">
+<div class="app" id="app" style="display:none">
 
-<div class="sidebar">
-  <h2>Balaji Motors</h2>
+  <div class="sidebar">
+    <h2>Balaji<br>Motors</h2>
+    <button onclick="nav(dashboard)">🏠 Dashboard</button>
+    <button onclick="nav(stockView)">📦 Stock</button>
+    <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
+    <button onclick="nav(searchView)">🔍 Search</button>
+    <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
+    <button onclick="exportData()">📤 Export</button>
+    <button onclick="importData()">📥 Import</button>
+    <button onclick="toggleTheme()">🌙 Theme</button>
+    <button onclick="nav(historyView)">📜 History</button>
+    <button id="changePinBtn" onclick="changePin()">🔐 Change PIN</button>
+  </div>
 
-  <button data-adv onclick="dashboard()">🏠 Dashboard</button>
-  <button data-simple onclick="stockView()">📦 Stock</button>
-  <button data-adv onclick="lowStockView()">⚠️ Low Stock</button>
-
-  <button data-simple onclick="generateBill()">🧾 Bill</button>
-  <button data-adv onclick="savedBills()">🖨 Bills</button>
-
-  <button data-adv onclick="monthlyReport()">📊 Revenue</button>
-  <button data-adv onclick="searchView()">🔍 Search</button>
-
-  <button data-adv onclick="exportData()">📤 Export</button>
-  <button data-adv onclick="toggleTheme()">🌙 Theme</button>
-
-  <button onclick="logout()">🚪 Logout</button>
+  <div class="main" id="main"></div>
 </div>
 
-<div class="main" id="main"></div>
-</div>
+<input type="file" id="fileInput" hidden>
 
 <script>
-/* ===== SECURITY & MODE ===== */
-if(!localStorage.ownerPin) localStorage.ownerPin="2580";
-if(!localStorage.staffPin) localStorage.staffPin="1111";
-let role="owner", mode="advanced";
+  if(!localStorage.billNo)
+    localStorage.billNo = "1";
+/* SPLASH */
+setTimeout(()=>{
+  splash.style.display="none";
+  app.style.display="flex";
+  login();
+},2500);
 
-function login(){
-  let p=prompt("Enter PIN");
-  if(p===localStorage.ownerPin){role="owner";mode="advanced"}
-  else if(p===localStorage.staffPin){role="staff";mode="simple"}
-  else return login();
-  applyMode();
-  dashboard();
-}
-login();
-
-function applyMode(){
-  document.querySelectorAll("[data-adv]").forEach(b=>{
-    b.style.display = mode==="advanced"?"block":"none";
-  });
-}
-
-function logout(){location.reload()}
-function toggleSidebar(){document.querySelector(".sidebar").classList.toggle("show")}
-
-/* ===== DATA (SAFE) ===== */
-let stock=JSON.parse(localStorage.stock||"{}");
-let history=JSON.parse(localStorage.history||"[]");
-let bills=JSON.parse(localStorage.bills||"[]");
-let customers=JSON.parse(localStorage.customers||"{}");
-let meta=JSON.parse(localStorage.meta||"{}");
-if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
-
-/* ===== AUTO BUILD CUSTOMER PROFILE (Feature 1,2) ===== */
-history.forEach(h=>{
-  if(!customers[h.phone]){
-    customers[h.phone]={name:h.cust,vehicle:h.vehicle,visits:0}
-  }
-  customers[h.phone].visits++;
-});
-localStorage.customers=JSON.stringify(customers);
-
-/* ===== DASHBOARD ===== */
-function dashboard(){
-  let m=new Date().getMonth(), y=new Date().getFullYear();
-  let monthlyBills=bills.filter(b=>{
-    let d=new Date(b.date);
-    return d.getMonth()==m && d.getFullYear()==y;
-  });
-  let revenue=monthlyBills.reduce((s,b)=>s+b.total,0);
-
-  main.innerHTML=`
-    <div class="card">
-      <h3>Dashboard</h3>
-      Monthly Revenue: ₹${revenue}<br>
-      Total Customers: ${Object.keys(customers).length}
-    </div>`;
-}
-
-/* ===== STOCK ===== */
-function stockView(){
-  let h="";
-  Object.keys(stock).forEach(i=>{
-    h+=`<div class="card">
-      <b>${i}</b><br>Qty: ${stock[i].qty}
-      ${stock[i].qty<=5?'<span class="low"> LOW</span>':""}
-      <br><br>
-      <button class="bigBtn" onclick="useStock('${i}')">➖ Reduce</button>
-    </div>`;
-  });
-  main.innerHTML=h;
-}
-
-function useStock(i){
-  let q=+prompt("Qty");
-  let cust=prompt("Customer");
-  let phone=prompt("Phone");
-  let vehicle=prompt("Vehicle");
-  let staff=prompt("Staff");
-
-  stock[i].qty-=q;
-  let time=new Date().toLocaleString();
-  history.unshift({cust,phone,vehicle,item:i,qty:q,staff,time});
-  localStorage.stock=JSON.stringify(stock);
-  localStorage.history=JSON.stringify(history);
-
-  let msg=`Hello ${cust}, your vehicle ${vehicle} service is completed.`;
-  main.innerHTML=`<div class="card">
-    Saved ✔️<br>
-    <a class="whatsapp" target="_blank"
-    href="https://wa.me/91${phone}?text=${encodeURIComponent(msg)}">WhatsApp</a>
-  </div>`;
-}
-
-/* ===== LOW STOCK (3) ===== */
-function lowStockView(){
-  let h=`<div class="card"><h3>Low Stock</h3></div>`;
-  Object.keys(stock).forEach(i=>{
-    if(stock[i].qty<=5) h+=`<div class="card">${i} - ${stock[i].qty}</div>`;
-  });
-  main.innerHTML=h;
-}
-
-/* ===== BILLING (7,8) ===== */
-function generateBill(){
-  let phone=prompt("Phone");
-  let vehicle=prompt("Vehicle");
-  let labour=+prompt("Labour (₹) [150 / 300 / 500]")||0;
-  let billNo="BM-"+localStorage.invoiceNo.padStart(4,"0");
-
-  let today=new Date().toDateString();
-  let items=history.filter(h=>h.phone===phone&&h.vehicle===vehicle&&new Date(h.time).toDateString()===today);
-  if(!items.length) return alert("No service");
-
-  let rows="",total=labour;
-  items.forEach(i=>{
-    let price=stock[i.item]?.price||0;
-    let amt=price*i.qty;
-    total+=amt;
-    rows+=`<tr><td>${i.item}</td><td>${i.qty}</td><td>₹${amt}</td></tr>`;
-  });
-
-  bills.unshift({billNo,phone,vehicle,date:new Date(),total});
-  localStorage.bills=JSON.stringify(bills);
-  localStorage.invoiceNo=(+localStorage.invoiceNo+1)+"";
-
-  main.innerHTML=`
-    <div class="card">
-      <h3>Bill ${billNo}</h3>
-      <table border="1" width="100%">${rows}</table>
-      <h2>Total ₹${total}</h2>
-      <button onclick="window.print()">Print</button>
-    </div>`;
-}
-
-/* ===== SAVED BILLS (7) ===== */
-function savedBills(){
-  let h=`<div class="card"><h3>Saved Bills</h3></div>`;
-  bills.forEach(b=>h+=`<div class="card">${b.billNo} - ₹${b.total}</div>`);
-  main.innerHTML=h;
-}
-
-/* ===== REVENUE (6) ===== */
-function monthlyReport(){
-  let today=new Date();
-  let daily=bills.filter(b=>new Date(b.date).toDateString()===today.toDateString());
-  let dailyTotal=daily.reduce((s,b)=>s+b.total,0);
-  main.innerHTML=`<div class="card">
-    <h3>Revenue</h3>
-    Today: ₹${dailyTotal}<br>
-    This Month: ₹${bills.reduce((s,b)=>s+b.total,0)}
-  </div>`;
-}
-
-/* ===== SEARCH (1,2) ===== */
-function searchView(){
-  let q=prompt("Name / Phone");
-  let h="";
-  Object.keys(customers).forEach(p=>{
-    let c=customers[p];
-    if(c.name.toLowerCase().startsWith(q.toLowerCase())){
-      h+=`<div class="card">
-        ${c.name} (${p})<br>
-        Visits: ${c.visits}${c.visits>1?" ⭐ Repeat":""}
-      </div>`;
-    }
-  });
-  main.innerHTML=h||"<div class='card'>No result</div>";
-}
-
-/* ===== BACKUP (9) ===== */
-function exportData(){
-  meta.lastBackup=new Date().toLocaleString();
-  localStorage.meta=JSON.stringify(meta);
-  let b=new Blob([JSON.stringify({stock,history,bills,customers,meta},null,2)],{type:"application/json"});
-  let a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="balaji-backup.json";
-  a.click();
-}
-
-/* ===== THEME ===== */
+/* THEME */
 if(localStorage.theme==="dark") document.body.classList.add("dark");
 function toggleTheme(){
   document.body.classList.toggle("dark");
   localStorage.theme=document.body.classList.contains("dark")?"dark":"light";
 }
+
+/* SIDEBAR */
+function toggleSidebar(){
+  document.querySelector(".sidebar").classList.toggle("show");
+}
+function nav(fn){
+  fn();
+  if(innerWidth<=768) document.querySelector(".sidebar").classList.remove("show");
+}
+
+/* SECURITY */
+if(!localStorage.ownerPin) localStorage.ownerPin="2580";
+if(!localStorage.staffPin) localStorage.staffPin="1111";
+let role="owner";
+
+function login(){
+  let p = prompt("Enter PIN");
+  if(p === localStorage.ownerPin) role = "owner";
+  else if(p === localStorage.staffPin) role = "staff";
+  else { alert("Wrong PIN"); return login(); }
+
+  // Hide Change PIN button for staff
+  setTimeout(()=>{
+    let btn = document.getElementById("changePinBtn");
+    if(btn && role !== "owner"){
+      btn.style.display = "none";
+    }
+  }, 0);
+
+  dashboard();
+}
+
+/* DATA */
+let stock=JSON.parse(localStorage.stock||"{}");
+let history=JSON.parse(localStorage.history||"[]");
+if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
+
+/* DASHBOARD */
+function dashboard(){
+  let d=new Date(),m=d.getMonth(),y=d.getFullYear();
+  let list=history.filter(x=>{
+    let t=new Date(x.time);
+    return t.getMonth()==m&&t.getFullYear()==y;
+  });
+  let cust=new Set(list.map(x=>x.phone));
+  main.innerHTML=`
+  <div class="card">
+    <h3>${d.toLocaleString("default",{month:"long"})} ${y}</h3>
+    Total Services: ${list.length}<br>
+    Customers: ${cust.size}<br>
+    Last Service: ${list[0]?.time||"—"}
+  </div>`;
+}
+
+/* STOCK */
+function stockView(){
+  let h=`<div class="card">`;
+  if(role==="owner") h+=`<button onclick="addStock()">➕ Add Stock</button>`;
+  h+=`</div>`;
+  for(let i in stock){
+    let low=stock[i].qty<=5?'<span class="low"> LOW</span>':'';
+    h+=`
+    <div class="card">
+      <b>${i}</b><br>
+      Qty: ${stock[i].qty}${low}
+      <div class="btnRow">
+        <button class="reduce" onclick="useStock('${i}')">Reduce</button>
+        ${role==="owner"?`
+        <button class="edit" onclick="editStock('${i}')">Edit</button>
+        <button class="delete" onclick="delStock('${i}')">Delete</button>`:""}
+      </div>
+    </div>`;
+  }
+  if(!Object.keys(stock).length) h+=`<div class="card">No stock</div>`;
+  main.innerHTML=h;
+  localStorage.stock=JSON.stringify(stock);
+}
+
+function addStock(){
+  let n=prompt("Spare name"),q=+prompt("Qty"),c=+prompt("Cost");
+  if(!n||q<0) return;
+  let price = +prompt("Selling price (GST included)");
+stock[n] = { qty: q, cost: c, price: price };
+  stockView();
+}
+function editStock(i){
+  let q=+prompt("Qty"); if(q<0) return;
+  stock[i].qty=q;
+  stockView();
+}
+function delStock(i){
+  if(confirm("Delete?")){delete stock[i];stockView();}
+}
+function useStock(i){
+  let q = +prompt("Quantity used:");
+  let cust = prompt("Customer name:");
+  let phone = prompt("Phone (10 digits):");
+  let vehicle = prompt("Vehicle number:");
+  let staff = prompt("Staff name:");
+
+  if(
+    !cust || 
+    !vehicle || 
+    !staff || 
+    !/^\d{10}$/.test(phone) || 
+    stock[i].qty < q
+  ){
+    alert("Invalid input");
+    return;
+  }
+
+  stock[i].qty -= q;
+
+  let time = new Date().toLocaleString();
+
+  history.unshift({
+    cust,
+    phone,
+    vehicle,
+    item: i,
+    qty: q,
+    staff,
+    time
+  });
+
+  localStorage.history = JSON.stringify(history);
+  localStorage.stock = JSON.stringify(stock);
+
+  let msg =
+`Hello ${cust},
+Dear Sir/Madam ,
+
+Your vehicle ${vehicle} service is completed at
+Balaji Motors, Anavatti.
+
+🛠️ Service Date: ${time}
+👨‍🔧 Serviced by: ${staff}
+
+Thank you for visiting Bajaj Authorised Service.`;
+
+  main.innerHTML = `
+    <div class="card">
+      <h3>Service Saved</h3>
+      <p><b>Customer:</b> ${cust}</p>
+      <p><b>Vehicle:</b> ${vehicle}</p>
+      <p><b>Staff:</b> ${staff}</p>
+      <p><b>Date:</b> ${time}</p>
+
+      <a class="whatsapp"
+         href="https://wa.me/91${phone}?text=${encodeURIComponent(msg)}"
+         target="_blank">
+         📲 Send WhatsApp Message
+      </a>
+
+      <br><br>
+      <button onclick="stockView()">⬅ Back to Stock</button>
+    </div>
+  `;
+}
+
+/* MONTHLY */
+function monthlyCustomers(){
+  let y=+prompt("Year"),m=+prompt("Month (1-12)")-1;
+  let list=history.filter(x=>{
+    let d=new Date(x.time);
+    return d.getFullYear()==y&&d.getMonth()==m;
+  });
+  if(!list.length){main.innerHTML=`<div class="card">No data</div>`;return;}
+  let h=`<div class="card"><h3>${m+1}/${y}</h3></div>`;
+  list.forEach(x=>{
+    h+=`<div class="card">${x.cust} (${x.phone})<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
+  });
+  main.innerHTML=h;
+}
+
+/* SEARCH */
+function searchView(){
+  let q=prompt("Customer name / Vehicle");
+  let list=history.filter(x=>
+    x.cust.toLowerCase().startsWith(q.toLowerCase()) ||
+    x.vehicle.toLowerCase().includes(q.toLowerCase())
+  );
+  if(!list.length){main.innerHTML=`<div class="card">No record</div>`;return;}
+  let h=`<div class="card"><h3>Results</h3></div>`;
+  list.forEach(x=>{
+    h+=`<div class="card">${x.cust}<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
+  });
+  main.innerHTML=h;
+}
+
+/* INVOICE */
+function invoiceView(){
+  let no=localStorage.invoiceNo.padStart(4,"0");
+  localStorage.invoiceNo=+localStorage.invoiceNo+1+"";
+  let total=0;
+  history.slice(0,5).forEach(x=>{
+    total+=x.qty*(stock[x.item]?.cost||0);
+  });
+  let gst=total*0.18;
+  main.innerHTML=`
+  <div class="card">
+    Invoice No: BM-${no}<br>
+    Total: ₹${total}<br>
+    GST (18%): ₹${gst}<br>
+    <b>Grand: ₹${total+gst}</b>
+  </div>`;
+}
+
+/* HISTORY */
+function historyView(){
+  if(!history.length){main.innerHTML=`<div class="card">No history</div>`;return;}
+  let h=`<div class="card"><h3>History</h3></div>`;
+  history.forEach(x=>{
+    h+=`<div class="card">${x.cust} (${x.phone})<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
+  });
+  main.innerHTML=h;
+}
+
+/* EXPORT / IMPORT */
+function exportData(){
+  let b=new Blob([JSON.stringify({stock,history},null,2)],{type:"application/json"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(b);
+  a.download="balaji-motors-backup.json";
+  a.click();
+}
+function importData(){
+  fileInput.click();
+}
+fileInput.onchange=e=>{
+  let r=new FileReader();
+  r.onload=ev=>{
+    let d=JSON.parse(ev.target.result);
+    stock=d.stock||{};
+    history=d.history||[];
+    localStorage.stock=JSON.stringify(stock);
+    localStorage.history=JSON.stringify(history);
+    dashboard();
+  };
+  r.readAsText(e.target.files[0]);
+};
+
+/* PIN CHANGE */
+function changePin(){
+  if(role !== "owner"){
+    alert("Access denied");
+    return;
+  }
+
+  let newPin = prompt("Enter NEW Owner PIN");
+  if(!newPin || newPin.length < 4){
+    alert("Invalid PIN");
+    return;
+  }
+
+  localStorage.ownerPin = newPin;
+  alert("Owner PIN updated successfully");
+}
+function generateTodayBill(){
+  let phone = prompt("Customer phone number:");
+  let vehicle = prompt("Vehicle number:");
+  let labour = +prompt("Labour charge (₹):") || 0;
+
+  if(!phone || !vehicle){
+    alert("Details required");
+    return;
+  }
+
+  // ✅ USE invoiceNo ONLY
+  let billNo = "BM-" + localStorage.invoiceNo.padStart(4,"0");
+
+  let today = new Date().toDateString();
+
+  let items = history.filter(h =>
+    h.phone === phone &&
+    h.vehicle === vehicle &&
+    new Date(h.time).toDateString() === today
+  );
+
+  if(items.length === 0){
+    alert("No service found for today");
+    return;
+  }
+
+  let total = labour;
+  let rows = "";
+
+  items.forEach(i=>{
+    let price = stock[i.item]?.price || 0;
+    let amount = price * i.qty;
+    total += amount;
+
+    rows += `
+      <tr>
+        <td>${i.item}</td>
+        <td>${i.qty}</td>
+        <td>₹${amount}</td>
+      </tr>`;
+  });
+
+  if(labour > 0){
+    rows += `
+      <tr>
+        <td>Labour Charge</td>
+        <td>—</td>
+        <td>₹${labour}</td>
+      </tr>`;
+  }
+
+  main.innerHTML = `
+    <div class="card" id="billArea">
+      <h2>Balaji Motors – Anavatti</h2>
+      <p><b>Bill No:</b> ${billNo}</p>
+      <p>Bajaj Authorised Service</p>
+      <hr>
+
+      <p>
+        <b>Phone:</b> ${phone}<br>
+        <b>Vehicle:</b> ${vehicle}<br>
+        <b>Date:</b> ${today}
+      </p>
+
+      <table width="100%" border="1" cellspacing="0" cellpadding="6">
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Amount</th>
+        </tr>
+        ${rows}
+      </table>
+
+      <h3>Total Amount: ₹${total}</h3>
+      <p>(GST included in price)</p>
+
+      <button onclick="printBill()">🖨 Print Bill</button>
+      <button onclick="dashboard()">⬅ Back</button>
+    </div>
+  `;
+
+  // ✅ increment SAME counter
+  localStorage.invoiceNo = (+localStorage.invoiceNo + 1).toString();
+}
+
+function printBill(){
+  window.print();
+}
 </script>
+
 </body>
 </html>
