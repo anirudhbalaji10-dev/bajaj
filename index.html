@@ -185,6 +185,7 @@ body.dark{
 <input type="file" id="fileInput" hidden>
 
 <script>
+  let currentBill = {};
   if(!localStorage.billNo)
     localStorage.billNo = "1";
 /* SPLASH */
@@ -674,18 +675,17 @@ function generateTodayBill(){
         <td>Labour Charge</td>
         <td>—</td>
         <td>₹${labour}</td>// 🔹 Save bill for future reprint </tr>`;
-bills.unshift({
+    currentBill = {
   billNo: billNo,
   phone: phone,
   vehicle: vehicle,
-  date: new Date().toISOString(),
-  items: items,     // service items used
+  items: items.map(i => ({
+    item: i.item,
+    qty: i.qty
+  })),
   labour: labour,
   total: total
-});
-
-localStorage.bills = JSON.stringify(bills);
-     
+};
   }
   
   main.innerHTML = `<div class="card">
@@ -740,6 +740,20 @@ localStorage.bills = JSON.stringify(bills);
 }
 
 function printBill(){
+
+  // 🔹 SAVE BILL ONLY WHEN PRINTING
+  bills.unshift({
+    billNo: document.querySelector("#billArea b").innerText.replace("Bill No: ",""),
+    phone: currentBill.phone,
+    vehicle: currentBill.vehicle,
+    date: new Date().toISOString(),
+    items: currentBill.items,
+    labour: currentBill.labour,
+    total: currentBill.total
+  });
+
+  localStorage.bills = JSON.stringify(bills);
+
   window.print();
 }
 function lowStockView(){
