@@ -161,6 +161,7 @@ body.dark{
     <button onclick="importData()">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
     <button onclick="nav(historyView)">📜 History</button>
+    <button onclick="lowStockView()">⚠️ Low Stock</button>
     <button id="changePinBtn" onclick="changePin()">🔐 Change PIN</button>
   </div>
 
@@ -220,6 +221,7 @@ function login(){
 /* DATA */
 let stock=JSON.parse(localStorage.stock||"{}");
 let history=JSON.parse(localStorage.history||"[]");
+let customers = JSON.parse(localStorage.customers || "{}");
 if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
 
 /* DASHBOARD */
@@ -280,10 +282,25 @@ function delStock(i){
 }
 function useStock(i){
   let q = +prompt("Quantity used:");
-  let cust = prompt("Customer name:");
   let phone = prompt("Phone (10 digits):");
-  let vehicle = prompt("Vehicle number:");
+  if(!/^\d{10}$/.test(phone)) return alert("Invalid phone");
+
+  let cust = customers[phone]?.name || prompt("Customer name:");
+  let vehicle = customers[phone]?.vehicle || prompt("Vehicle number:");
   let staff = prompt("Staff name:");
+  // 🔹 Save / update customer profile
+if(!customers[phone]){
+  customers[phone] = {
+    name: cust,
+    vehicle: vehicle,
+    visits: 1
+  };
+} else {
+  customers[phone].visits++;
+  customers[phone].vehicle = vehicle; // update latest vehicle
+}
+
+localStorage.customers = JSON.stringify(customers);
 
   if(
     !cust || 
@@ -369,9 +386,19 @@ function searchView(){
   );
   if(!list.length){main.innerHTML=`<div class="card">No record</div>`;return;}
   let h=`<div class="card"><h3>Results</h3></div>`;
-  list.forEach(x=>{
-    h+=`<div class="card">${x.cust}<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
-  });
+ let repeatTag = customers[x.phone]?.visits > 1
+  ? " ⭐ Repeat Customer"
+  : "";
+
+h += `
+  <div class="card">
+    <b>${x.cust}</b>${repeatTag}<br>
+    Phone: ${x.phone}<br>
+    Vehicle: ${x.vehicle}<br>
+    Visits: ${customers[x.phone]?.visits || 1}<br>
+    Last Service: ${x.time}
+  </div>
+`;
   main.innerHTML=h;
 }
 
@@ -397,8 +424,11 @@ function invoiceView(){
 function historyView(){
   if(!history.length){main.innerHTML=`<div class="card">No history</div>`;return;}
   let h=`<div class="card"><h3>History</h3></div>`;
-  history.forEach(x=>{
-    h+=`<div class="card">${x.cust} (${x.phone})<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
+  history.forEach(x=>{let repeat =
+  customers[x.phone]?.visits > 1
+    ? " ⭐ Repeat"
+    : "";
+    h+=`<div class="card"><b>${x.cust}</b>${repeat}<br> (${x.phone})<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
   });
   main.innerHTML=h;
 }
@@ -530,6 +560,28 @@ function generateTodayBill(){
 
 function printBill(){
   window.print();
+}
+function lowStockView(){
+  let h = `<div class="card"><h3>Low Stock Items</h3></div>`;
+  let found = false;
+
+  for(let item in stock){
+    if(stock[item].qty <= 5){
+      found = true;
+      h += `
+        <div class="card">
+          <b>${item}</b><br>
+          Quantity Left: <span class="low">${stock[item].qty}</span>
+        </div>
+      `;
+    }
+  }
+
+  if(!found){
+    h += `<div class="card">✅ No low stock items</div>`;
+  }
+
+  main.innerHTML = h;
 }
 </script>
 
