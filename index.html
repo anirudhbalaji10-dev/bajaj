@@ -185,16 +185,16 @@ body.dark{
 <input type="file" id="fileInput" hidden>
 
 <script>
+  let main = document.getElementById("main");
   let currentBill = {};
   if(!localStorage.billNo)
     localStorage.billNo = "1";
 /* SPLASH */
 setTimeout(()=>{
-  splash.style.display="none";
-  app.style.display="flex";
+  document.getElementById("splash").style.display = "none";
+  document.getElementById("app").style.display = "flex";
   login();
 },2500);
-
 /* THEME */
 if(localStorage.theme==="dark") document.body.classList.add("dark");
 function toggleTheme(){
