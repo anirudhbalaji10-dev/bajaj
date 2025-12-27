@@ -137,6 +137,19 @@ body.dark{
     margin-left:0;
   }
 }
+body::after{
+  content: "© Balaji Motors – Anavatti";
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  font-size: 11px;
+  color: rgba(0,0,0,0.15);
+  pointer-events: none;
+  z-index: 0;
+}
+body.dark::after{
+  color: rgba(255,255,255,0.15);
+}
 </style>
 </head>
 
