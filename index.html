@@ -281,13 +281,18 @@ function dashboard(){
 
 /* STOCK */
 function stockView(){
-  let h=`<div class="card">`;
+  let h = `
+  <div class="card">
+    <input type="text" id="stockSearch" placeholder="Search spare..." 
+      onkeyup="filterStock()" style="width:100%;padding:10px;font-size:16px;">
+  </div>
+`;
   if(role==="owner") h+=`<button onclick="addStock()">➕ Add Stock</button>`;
   h+=`</div>`;
   for(let i in stock){
     let low=stock[i].qty<=5?'<span class="low"> LOW</span>':'';
     h+=`
-    <div class="card">
+    <div class="card stockItem" data-name="${i.toLowerCase()}">
       <b>${i}</b><br>
       Qty: ${stock[i].qty}${low}
       <div class="btnRow">
@@ -815,6 +820,13 @@ function applyModeUI(){
       btn.style.display = "none";
     });
   }
+}
+function filterStock(){
+  let q = document.getElementById("stockSearch").value.toLowerCase();
+  document.querySelectorAll(".stockItem").forEach(card=>{
+    let name = card.getAttribute("data-name");
+    card.style.display = name.includes(q) ? "block" : "none";
+  });
 }
 </script>
 
