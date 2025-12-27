@@ -185,16 +185,16 @@ body.dark{
 <input type="file" id="fileInput" hidden>
 
 <script>
-  let main = document.getElementById("main");
   let currentBill = {};
   if(!localStorage.billNo)
     localStorage.billNo = "1";
 /* SPLASH */
 setTimeout(()=>{
-  document.getElementById("splash").style.display = "none";
-  document.getElementById("app").style.display = "flex";
+  splash.style.display="none";
+  app.style.display="flex";
   login();
 },2500);
+
 /* THEME */
 if(localStorage.theme==="dark") document.body.classList.add("dark");
 function toggleTheme(){
@@ -206,12 +206,9 @@ function toggleTheme(){
 function toggleSidebar(){
   document.querySelector(".sidebar").classList.toggle("show");
 }
-
 function nav(fn){
   fn();
-  if(window.innerWidth <= 768){
-    document.querySelector(".sidebar").classList.remove("show");
-  }
+  if(innerWidth<=768) document.querySelector(".sidebar").classList.remove("show");
 }
 
 /* SECURITY */
@@ -672,16 +669,13 @@ function generateTodayBill(){
       </tr>`;
   });
 
- if(labour > 0){
-  rows += `
-    <tr>
-      <td>Labour Charge</td>
-      <td>—</td>
-      <td>₹${labour}</td>
-    </tr>`;
-}
-
-currentBill = {
+  if(labour > 0){
+    rows += `
+      <tr>
+        <td>Labour Charge</td>
+        <td>—</td>
+        <td>₹${labour}</td>// 🔹 Save bill for future reprint </tr>`;
+    currentBill = {
   billNo: billNo,
   phone: phone,
   vehicle: vehicle,
@@ -747,13 +741,9 @@ currentBill = {
 
 function printBill(){
 
-  if(!currentBill.billNo){
-    alert("Bill not ready");
-    return;
-  }
-
+  // 🔹 SAVE BILL ONLY WHEN PRINTING
   bills.unshift({
-    billNo: currentBill.billNo,
+    billNo: document.querySelector("#billArea b").innerText.replace("Bill No: ",""),
     phone: currentBill.phone,
     vehicle: currentBill.vehicle,
     date: new Date().toISOString(),
@@ -764,7 +754,6 @@ function printBill(){
 
   localStorage.bills = JSON.stringify(bills);
 
-  alert("✅ Bill saved successfully");
   window.print();
 }
 function lowStockView(){
