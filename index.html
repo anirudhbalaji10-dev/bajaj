@@ -206,9 +206,12 @@ function toggleTheme(){
 function toggleSidebar(){
   document.querySelector(".sidebar").classList.toggle("show");
 }
+
 function nav(fn){
   fn();
-  if(innerWidth<=768) document.querySelector(".sidebar").classList.remove("show");
+  if(window.innerWidth <= 768){
+    document.querySelector(".sidebar").classList.remove("show");
+  }
 }
 
 /* SECURITY */
@@ -669,13 +672,16 @@ function generateTodayBill(){
       </tr>`;
   });
 
-  if(labour > 0){
-    rows += `
-      <tr>
-        <td>Labour Charge</td>
-        <td>—</td>
-        <td>₹${labour}</td>// 🔹 Save bill for future reprint </tr>`;
-    currentBill = {
+ if(labour > 0){
+  rows += `
+    <tr>
+      <td>Labour Charge</td>
+      <td>—</td>
+      <td>₹${labour}</td>
+    </tr>`;
+}
+
+currentBill = {
   billNo: billNo,
   phone: phone,
   vehicle: vehicle,
@@ -741,9 +747,13 @@ function generateTodayBill(){
 
 function printBill(){
 
-  // 🔹 SAVE BILL ONLY WHEN PRINTING
+  if(!currentBill.billNo){
+    alert("Bill not ready");
+    return;
+  }
+
   bills.unshift({
-    billNo: document.querySelector("#billArea b").innerText.replace("Bill No: ",""),
+    billNo: currentBill.billNo,
     phone: currentBill.phone,
     vehicle: currentBill.vehicle,
     date: new Date().toISOString(),
@@ -754,6 +764,7 @@ function printBill(){
 
   localStorage.bills = JSON.stringify(bills);
 
+  alert("✅ Bill saved successfully");
   window.print();
 }
 function lowStockView(){
