@@ -157,7 +157,6 @@ body.dark::after{
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-  const fileInput = document.getElementById("fileInput");
 
 
   const firebaseConfig = {
@@ -168,7 +167,10 @@ body.dark::after{
     messagingSenderId: "713173253840",
     appId: "1:713173253840:web:8bad1c0d1f9c8b9333a8d5"
   };
-
+  
+  let role = "staff";
+  let main = null;
+  let fileInput = null;
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -186,10 +188,10 @@ body.dark::after{
         alert("Role not assigned in database");
         return;
       }
-      const main = document.getElementById("main");
+      
 
       window.role = snap.data().role;
-      await loadStockCloud();
+      try{ await loadStockCloud(); }catch(e){ console.warn(e); }
       document.getElementById("loginBox").style.display="none";
       document.getElementById("app").style.display="flex";
       dashboard();
@@ -510,8 +512,10 @@ localStorage.meta = JSON.stringify(meta);
   a.click();
 }
 function importData(){
+  if(!fileInput){ alert("File system not ready"); return; }
   fileInput.click();
 }
+
 fileInput.onchange=e=>{
   let r=new FileReader();
   r.onload=ev=>{
@@ -840,6 +844,10 @@ async function cloudLoad(){
 function logout(){
   location.reload();
 }
+window.addEventListener("load", ()=>{
+  main = document.getElementById("main");
+  fileInput = document.getElementById("fileInput");
+});
 
 
 </script>
