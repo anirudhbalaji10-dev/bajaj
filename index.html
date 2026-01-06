@@ -196,63 +196,7 @@ body.dark::after{
       alert("Invalid Gmail or Password");
     }
   }
-</script>
-
-</head>
-
-<body>
- <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
-  <h2>Balaji Motors Login</h2>
-  <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
-  <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
-  <button onclick="loginUser()" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
-    Login
-  </button>
-</div>
-
-
-<!-- SPLASH -->
-<div id="splash">
-  <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
-  <h1>Balaji Motors – Anavatti</h1>
-  <small>Bajaj Authorised Service Center</small>
-</div>
-
-<div class="mobileHeader">
-  <button onclick="toggleSidebar()">☰</button>
-  <b>Balaji Motors</b>
-</div>
-
-<div class="app" id="app" style="display:none">
-
-  <div class="sidebar">
-    <h2>Balaji<br>Motors</h2>
-    <button onclick="nav(dashboard)">🏠 Dashboard</button>
-    <button onclick="nav(stockView)">📦 Stock</button>
-    <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
-    <button onclick="nav(searchView)">🔍 Search</button>
-    <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
-    <button onclick="exportData()"
-      class="adv">📤 Export</button>
-    <button onclick="importData()"
-      class="adv">📥 Import</button>
-    <button onclick="toggleTheme()">🌙 Theme</button>
-    <button onclick="nav(historyView)">📜 History</button>
-    <button onclick="nav(lowStockView)">⚠️ Low Stock</button>
-    <button onclick="logout()">🚪 Logout</button>
-    <button onclick="nav(revenueView)"
-      class="adv">💰 Revenue</button>
-    <button onclick="nav(savedBillsView)"
-      class="adv">🧾 Saved Bills</button>
-    <button id="changePinBtn" onclick="changePin()"
-      class="adv">🔐 Change PIN</button>
-
-  <div class="main" id="main"></div>
-</div>
-
-<input type="file" id="fileInput" hidden>
-
-<script>
+  
   let currentBill = {};
   if(!localStorage.billNo)
     localStorage.billNo = "1";
@@ -866,6 +810,61 @@ async function loadStockCloud(){
 }
 
 </script>
+
+</head>
+
+<body>
+ <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
+  <h2>Balaji Motors Login</h2>
+  <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
+  <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
+  <button onclick="loginUser()" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
+    Login
+  </button>
+</div>
+
+
+<!-- SPLASH -->
+<div id="splash">
+  <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
+  <h1>Balaji Motors – Anavatti</h1>
+  <small>Bajaj Authorised Service Center</small>
+</div>
+
+<div class="mobileHeader">
+  <button onclick="toggleSidebar()">☰</button>
+  <b>Balaji Motors</b>
+</div>
+
+<div class="app" id="app" style="display:none">
+
+  <div class="sidebar">
+    <h2>Balaji<br>Motors</h2>
+    <button onclick="nav(dashboard)">🏠 Dashboard</button>
+    <button onclick="nav(stockView)">📦 Stock</button>
+    <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
+    <button onclick="nav(searchView)">🔍 Search</button>
+    <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
+    <button onclick="exportData()"
+      class="adv">📤 Export</button>
+    <button onclick="importData()"
+      class="adv">📥 Import</button>
+    <button onclick="toggleTheme()">🌙 Theme</button>
+    <button onclick="nav(historyView)">📜 History</button>
+    <button onclick="nav(lowStockView)">⚠️ Low Stock</button>
+    <button onclick="logout()">🚪 Logout</button>
+    <button onclick="nav(revenueView)"
+      class="adv">💰 Revenue</button>
+    <button onclick="nav(savedBillsView)"
+      class="adv">🧾 Saved Bills</button>
+    <button id="changePinBtn" onclick="changePin()"
+      class="adv">🔐 Change PIN</button>
+
+  <div class="main" id="main"></div>
+</div>
+
+<input type="file" id="fileInput" hidden>
+
 
 </body>
 </html>
