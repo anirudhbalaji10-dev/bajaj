@@ -244,11 +244,6 @@ body.dark::after{
       class="adv">🧾 Saved Bills</button>
     <button id="changePinBtn" onclick="changePin()"
       class="adv">🔐 Change PIN</button>
-    <button onclick="nav(cloudSave)"
-      class="adv">☁️ Cloud Save</button>
-    <button onclick="nav(cloudLoad)"
-      class="adv">☁️ Cloud Load</button>
-  </div>
 
   <div class="main" id="main"></div>
 </div>
@@ -847,56 +842,12 @@ function checkBackupReminder(){
     alert("⚠️ Last backup was " + diffDays + " days ago. Please export backup.");
   }
 }
-function applyModeUI(){
-
-  // 🔹 Reset: show all advanced buttons first
-  document.querySelectorAll(".adv").forEach(btn=>{
-    btn.style.display = "block";
-  });
-
-  // 🔹 Hide advanced buttons for staff
-  if(mode === "simple"){
-    document.querySelectorAll(".adv").forEach(btn=>{
-      btn.style.display = "none";
-    });
-  }
-}
 function filterStock(){
   let q = document.getElementById("stockSearch").value.toLowerCase();
   document.querySelectorAll(".stockItem").forEach(card=>{
     let name = card.getAttribute("data-name");
     card.style.display = name.includes(q) ? "block" : "none";
   });
-}
-async function cloudSave(){
-  await db.collection("balaji").doc("data").set({
-    stock, history, bills, customers, meta
-  });
-  alert("☁️ Cloud backup saved");
-}
-
-async function cloudLoad(){
-  let doc = await db.collection("balaji").doc("data").get();
-  if(!doc.exists){
-    alert("No cloud data found");
-    return;
-  }
-
-  let d = doc.data();
-  stock = d.stock || {};
-  history = d.history || [];
-  bills = d.bills || [];
-  customers = d.customers || {};
-  meta = d.meta || {};
-
-  localStorage.stock = JSON.stringify(stock);
-  localStorage.history = JSON.stringify(history);
-  localStorage.bills = JSON.stringify(bills);
-  localStorage.customers = JSON.stringify(customers);
-  localStorage.meta = JSON.stringify(meta);
-
-  alert("☁️ Cloud data loaded");
-  dashboard();
 }
 async function saveStockCloud(){
   await setDoc(doc(db, "balaji", "stock"), {
