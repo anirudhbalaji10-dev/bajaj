@@ -155,7 +155,8 @@ body.dark::after{
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
 
   const firebaseConfig = {
     apiKey: "AIzaSyDORVDe8uzAbCPWVDKc44YZbMKBTlRO6tU",
@@ -185,6 +186,7 @@ body.dark::after{
       }
 
       window.role = snap.data().role;
+      await loadStockCloud();
       document.getElementById("loginBox").style.display="none";
       document.getElementById("app").style.display="flex";
       dashboard();
@@ -347,6 +349,7 @@ function stockView(){
     </div>`;
   }
   if(!Object.keys(stock).length) h+=`<div class="card">No stock</div>`;
+  saveStockCloud();
   main.innerHTML=h;
   localStorage.stock=JSON.stringify(stock);
 }
@@ -895,6 +898,20 @@ async function cloudLoad(){
   alert("☁️ Cloud data loaded");
   dashboard();
 }
+async function saveStockCloud(){
+  await setDoc(doc(db, "balaji", "stock"), {
+    data: JSON.stringify(stock)
+  });
+}
+
+async function loadStockCloud(){
+  const snap = await getDoc(doc(db, "balaji", "stock"));
+  if(snap.exists()){
+    stock = JSON.parse(snap.data().data || "{}");
+    localStorage.stock = JSON.stringify(stock);
+  }
+}
+
 </script>
 
 </body>
