@@ -191,6 +191,8 @@ body.dark::after{
       document.getElementById("app").style.display="flex";
       dashboard();
     }catch(e){
+      console.error(e);
+      alert(e.message);
       alert("Invalid Gmail or Password");
     }
   }
