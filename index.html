@@ -208,8 +208,6 @@ body.dark::after{
 /* SPLASH */
 setTimeout(()=>{
   splash.style.display="none";
-  app.style.display="flex";
-  login();
 },2500);
 
 /* THEME */
@@ -229,33 +227,6 @@ function nav(fn){
 }
 
 /* SECURITY */
-if(!localStorage.ownerPin) localStorage.ownerPin="2580";
-if(!localStorage.staffPin) localStorage.staffPin="1111";
-let role="owner";
-let mode = "advanced";
-
-function login(){
-  let p = prompt("Enter PIN");
-  if(p === localStorage.ownerPin){
-  role = "owner";
-  mode = "advanced";
-}
-else if(p === localStorage.staffPin){
-  role = "staff";
-  mode = "simple";
-}
-  else { alert("Wrong PIN"); return login(); }
-
-  // Hide Change PIN button for staff
-  setTimeout(()=>{
-    let btn = document.getElementById("changePinBtn");
-    if(btn && role !== "owner"){
-      btn.style.display = "none";
-    }
-  }, 0);
-  applyModeUI();
-  dashboard();
-}
 
 /* DATA */
 let meta = JSON.parse(localStorage.meta || "{}");
@@ -424,9 +395,6 @@ Thank you for visiting Bajaj Authorised Service.`;
       <button onclick="stockView()">⬅ Back to Stock</button>
     </div>
   `;
-}
-function logout(){
-  location.reload();
 }
 //Revenue view
 function revenueView(){
