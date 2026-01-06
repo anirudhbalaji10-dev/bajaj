@@ -151,9 +151,60 @@ body.dark::after{
   color: rgba(255,255,255,0.15);
 }
 </style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDORVDe8uzAbCPWVDKc44YZbMKBTlRO6tU",
+    authDomain: "balaji-motors-6fe53.firebaseapp.com",
+    projectId: "balaji-motors-6fe53",
+    storageBucket: "balaji-motors-6fe53.firebasestorage.app",
+    messagingSenderId: "713173253840",
+    appId: "1:713173253840:web:8bad1c0d1f9c8b9333a8d5"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.loginUser = async function(){
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try{
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCred.user.uid;
+
+      const snap = await getDoc(doc(db, "users", uid));
+      if(!snap.exists()){
+        alert("Role not assigned in database");
+        return;
+      }
+
+      window.role = snap.data().role;
+      document.getElementById("loginBox").style.display="none";
+      document.getElementById("app").style.display="flex";
+      dashboard();
+    }catch(e){
+      alert("Invalid Gmail or Password");
+    }
+  }
+</script>
+
 </head>
 
 <body>
+ <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
+  <h2>Balaji Motors Login</h2>
+  <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
+  <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
+  <button onclick="loginUser()" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
+    Login
+  </button>
+</div>
+
 
 <!-- SPLASH -->
 <div id="splash">
