@@ -290,7 +290,6 @@ function stockView(){
     </div>`;
   }
   if(!Object.keys(stock).length) h+=`<div class="card">No stock</div>`;
-  saveStockCloud();
   main.innerHTML=h;
   localStorage.stock=JSON.stringify(stock);
 }
@@ -808,6 +807,34 @@ async function loadStockCloud(){
     localStorage.stock = JSON.stringify(stock);
   }
 }
+async function cloudSave(){
+  await setDoc(doc(db,"balaji","data"),{
+    stock,history,bills,customers,meta
+  });
+  alert("☁️ Cloud saved");
+}
+
+async function cloudLoad(){
+  const snap = await getDoc(doc(db,"balaji","data"));
+  if(!snap.exists()){
+    alert("No cloud backup found");
+    return;
+  }
+  const d = snap.data();
+  stock = d.stock || {};
+  history = d.history || [];
+  bills = d.bills || [];
+  customers = d.customers || {};
+  meta = d.meta || {};
+  localStorage.stock = JSON.stringify(stock);
+  localStorage.history = JSON.stringify(history);
+  localStorage.bills = JSON.stringify(bills);
+  localStorage.customers = JSON.stringify(customers);
+  localStorage.meta = JSON.stringify(meta);
+  alert("☁️ Cloud loaded");
+  dashboard();
+}
+
 
 </script>
 
