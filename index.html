@@ -192,9 +192,16 @@ body.dark::after{
 
       window.role = snap.data().role;
       try{ await loadStockCloud(); }catch(e){ console.warn(e); }
-      document.getElementById("loginBox").style.display="none";
-      document.getElementById("app").style.display="flex";
-      dashboard();
+      document.getElementById("loginBox").style.display = "none";
+document.getElementById("app").style.display = "flex";
+
+main = document.getElementById("main");
+fileInput = document.getElementById("fileInput");
+
+setTimeout(()=>{
+  dashboard();
+},200);
+
     }catch(e){
       console.error(e);
       alert(e.message);
@@ -844,10 +851,6 @@ async function cloudLoad(){
 function logout(){
   location.reload();
 }
-window.addEventListener("load", ()=>{
-  main = document.getElementById("main");
-  fileInput = document.getElementById("fileInput");
-});
 
 
 </script>
