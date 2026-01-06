@@ -153,62 +153,138 @@ body.dark::after{
 </style>
   
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDORVDe8uzAbCPWVDKc44YZbMKBTlRO6tU",
+  authDomain: "balaji-motors-6fe53.firebaseapp.com",
+  projectId: "balaji-motors-6fe53",
+  storageBucket: "balaji-motors-6fe53.firebasestorage.app",
+  messagingSenderId: "713173253840",
+  appId: "1:713173253840:web:8bad1c0d1f9c8b9333a8d5"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.firebaseLogin = (email, pass) =>
+  signInWithEmailAndPassword(auth, email, pass);
+
+window.getUserRole = async (uid) => {
+  const snap = await getDoc(doc(db, "users", uid));
+  if(!snap.exists()) throw "NO_ROLE";
+  return snap.data().role;
+};
+
+window.cloudSave = (data) =>
+  setDoc(doc(db,"balaji","data"), data);
+
+window.cloudLoad = async () => {
+  const snap = await getDoc(doc(db,"balaji","data"));
+  return snap.exists() ? snap.data() : null;
+};
+</script>
 
 
+</head>
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDORVDe8uzAbCPWVDKc44YZbMKBTlRO6tU",
-    authDomain: "balaji-motors-6fe53.firebaseapp.com",
-    projectId: "balaji-motors-6fe53",
-    storageBucket: "balaji-motors-6fe53.firebasestorage.app",
-    messagingSenderId: "713173253840",
-    appId: "1:713173253840:web:8bad1c0d1f9c8b9333a8d5"
-  };
+<body>
+ <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
+  <h2>Balaji Motors Login</h2>
+  <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
+  <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
+  <button onclick="loginUser()" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
+    Login
+  </button>
+</div>
+
+
+<!-- SPLASH -->
+<div id="splash">
+  <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
+  <h1>Balaji Motors – Anavatti</h1>
+  <small>Bajaj Authorised Service Center</small>
+</div>
+
+<div class="mobileHeader">
+  <button onclick="toggleSidebar()">☰</button>
+  <b>Balaji Motors</b>
+</div>
+
+<div class="app" id="app" style="display:none">
+
+  <div class="sidebar">
+    <h2>Balaji<br>Motors</h2>
+    <button onclick="nav(dashboard)">🏠 Dashboard</button>
+    <button onclick="nav(stockView)">📦 Stock</button>
+    <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
+    <button onclick="nav(searchView)">🔍 Search</button>
+    <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
+    <button onclick="exportData()"
+      class="adv">📤 Export</button>
+    <button onclick="importData()"
+      class="adv">📥 Import</button>
+    <button onclick="toggleTheme()">🌙 Theme</button>
+    <button onclick="nav(historyView)">📜 History</button>
+    <button onclick="nav(lowStockView)">⚠️ Low Stock</button>
+    <button onclick="logout()">🚪 Logout</button>
+    <button onclick="nav(revenueView)"
+      class="adv">💰 Revenue</button>
+    <button onclick="nav(savedBillsView)"
+      class="adv">🧾 Saved Bills</button>
+    <button id="changePinBtn" onclick="changePin()"
+      class="adv">🔐 Change PIN</button>
+  </div>
+  <div class="main" id="main"></div>
+
+
+<input type="file" id="fileInput" hidden>
+<script>
   
-  let role = "staff";
-  let main = null;
-  let fileInput = null;
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+let role = "staff";
+let main, fileInput;
 
-  window.loginUser = async function(){
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
+window.onload = ()=>{
+  main = document.getElementById("main");
+  fileInput = document.getElementById("fileInput");
+};
 
-    try{
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCred.user.uid;
+function loginUser(){
+  const email = document.getElementById("email").value;
+  const pass  = document.getElementById("password").value;
 
-      const snap = await getDoc(doc(db, "users", uid));
-      if(!snap.exists()){
-        alert("Role not assigned in database");
-        return;
-      }
-      
+  firebaseLogin(email,pass)
+    .then(u => getUserRole(u.user.uid))
+   .then(r=>{
+  role = r;
+  document.getElementById("loginBox").style.display="none";
+  document.getElementById("app").style.display="flex";
 
-      window.role = snap.data().role;
-      try{ await loadStockCloud(); }catch(e){ console.warn(e); }
-      document.getElementById("loginBox").style.display = "none";
-document.getElementById("app").style.display = "flex";
-
-main = document.getElementById("main");
-fileInput = document.getElementById("fileInput");
-
-setTimeout(()=>{
-  dashboard();
-},200);
-
-    }catch(e){
-      console.error(e);
-      alert(e.message);
-      alert("Invalid Gmail or Password");
+  cloudLoad().then(data=>{
+    if(data){
+      stock = data.stock || {};
+      history = data.history || [];
+      bills = data.bills || [];
+      customers = data.customers || {};
+      meta = data.meta || {};
+      localStorage.stock = JSON.stringify(stock);
+      localStorage.history = JSON.stringify(history);
+      localStorage.bills = JSON.stringify(bills);
+      localStorage.customers = JSON.stringify(customers);
+      localStorage.meta = JSON.stringify(meta);
     }
-  }
-  
+    dashboard();
+  });
+})
+
+    .catch(()=>{
+      alert("Invalid Gmail or Role not assigned");
+    });
+}
+
   let currentBill = {};
   if(!localStorage.billNo)
     localStorage.billNo = "1";
@@ -313,14 +389,16 @@ function addStock(){
   let price = +prompt("Selling price (GST included)");
 stock[n] = { qty: q, cost: c, price: price };
   stockView();
+  cloudSave({ stock, history, bills, customers, meta });
 }
 function editStock(i){
   let q=+prompt("Qty"); if(q<0) return;
   stock[i].qty=q;
   stockView();
+  cloudSave({ stock, history, bills, customers, meta });
 }
 function delStock(i){
-  if(confirm("Delete?")){delete stock[i];stockView();}
+  if(confirm("Delete?")){delete stock[i];stockView();cloudSave({ stock, history, bills, customers, meta });}
 }
 function useStock(i){
   let q = +prompt("Quantity used:");
@@ -371,6 +449,7 @@ localStorage.customers = JSON.stringify(customers);
 
   localStorage.history = JSON.stringify(history);
   localStorage.stock = JSON.stringify(stock);
+  cloudSave({ stock, history, bills, customers, meta });
 
   let msg =
 `Hello ${cust},
@@ -454,28 +533,36 @@ function monthlyCustomers(){
 
 /* SEARCH */
 function searchView(){
-  let q=prompt("Customer name / Vehicle");
-  let list=history.filter(x=>
+  let q = prompt("Customer name / Vehicle");
+  if(!q) return;
+
+  let list = history.filter(x =>
     x.cust.toLowerCase().startsWith(q.toLowerCase()) ||
     x.vehicle.toLowerCase().includes(q.toLowerCase())
   );
-  if(!list.length){main.innerHTML=`<div class="card">No record</div>`;return;}
-  let h=`<div class="card"><h3>Results</h3></div>`;
- let repeatTag = customers[x.phone]?.visits > 1
-  ? " ⭐ Repeat Customer"
-  : "";
 
-h += `
-  <div class="card">
-    <b>${x.cust}</b>${repeatTag}<br>
-    Phone: ${x.phone}<br>
-    Vehicle: ${x.vehicle}<br>
-    Visits: ${customers[x.phone]?.visits || 1}<br>
-    Last Service: ${x.time}
-  </div>
-`;
-  main.innerHTML=h;
+  if(!list.length){
+    main.innerHTML = `<div class="card">No record</div>`;
+    return;
+  }
+
+  let h = `<div class="card"><h3>Results</h3></div>`;
+
+  list.forEach(x=>{
+    let repeatTag = customers[x.phone]?.visits > 1 ? " ⭐ Repeat Customer" : "";
+    h += `
+      <div class="card">
+        <b>${x.cust}</b>${repeatTag}<br>
+        Phone: ${x.phone}<br>
+        Vehicle: ${x.vehicle}<br>
+        Last Service: ${x.time}
+      </div>
+    `;
+  });
+
+  main.innerHTML = h;
 }
+
 
 /* INVOICE */
 function invoiceView(){
@@ -532,6 +619,7 @@ fileInput.onchange=e=>{
     localStorage.stock=JSON.stringify(stock);
     localStorage.history=JSON.stringify(history);
     dashboard();
+    cloudSave({ stock, history, bills, customers, meta });
   };
   r.readAsText(e.target.files[0]);
 };
@@ -669,12 +757,15 @@ function generateTodayBill(){
   });
 
   if(labour > 0){
-    rows += `
+  rows += `
       <tr>
         <td>Labour Charge</td>
         <td>—</td>
-        <td>₹${labour}</td>// 🔹 Save bill for future reprint </tr>`;
-    currentBill = {
+        <td>₹${labour}</td>
+      </tr>`;
+}
+
+currentBill = {
   billNo: billNo,
   phone: phone,
   vehicle: vehicle,
@@ -685,7 +776,7 @@ function generateTodayBill(){
   labour: labour,
   total: total
 };
-  }
+
   
   main.innerHTML = `<div class="card">
   <h3>Labour Charges</h3>
@@ -739,6 +830,10 @@ function generateTodayBill(){
 }
 
 function printBill(){
+  if(!currentBill || !currentBill.phone){
+  alert("Please generate bill first");
+  return;
+}
 
   // 🔹 SAVE BILL ONLY WHEN PRINTING
   bills.unshift({
@@ -752,6 +847,7 @@ function printBill(){
   });
 
   localStorage.bills = JSON.stringify(bills);
+  cloudSave({ stock, history, bills, customers, meta });
 
   window.print();
 }
@@ -808,107 +904,11 @@ function filterStock(){
     card.style.display = name.includes(q) ? "block" : "none";
   });
 }
-async function saveStockCloud(){
-  await setDoc(doc(db, "balaji", "stock"), {
-    data: JSON.stringify(stock)
-  });
-}
-
-async function loadStockCloud(){
-  const snap = await getDoc(doc(db, "balaji", "stock"));
-  if(snap.exists()){
-    stock = JSON.parse(snap.data().data || "{}");
-    localStorage.stock = JSON.stringify(stock);
-  }
-}
-async function cloudSave(){
-  await setDoc(doc(db,"balaji","data"),{
-    stock,history,bills,customers,meta
-  });
-  alert("☁️ Cloud saved");
-}
-
-async function cloudLoad(){
-  const snap = await getDoc(doc(db,"balaji","data"));
-  if(!snap.exists()){
-    alert("No cloud backup found");
-    return;
-  }
-  const d = snap.data();
-  stock = d.stock || {};
-  history = d.history || [];
-  bills = d.bills || [];
-  customers = d.customers || {};
-  meta = d.meta || {};
-  localStorage.stock = JSON.stringify(stock);
-  localStorage.history = JSON.stringify(history);
-  localStorage.bills = JSON.stringify(bills);
-  localStorage.customers = JSON.stringify(customers);
-  localStorage.meta = JSON.stringify(meta);
-  alert("☁️ Cloud loaded");
-  dashboard();
-}
 function logout(){
   location.reload();
 }
 
-
 </script>
-
-</head>
-
-<body>
- <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
-  <h2>Balaji Motors Login</h2>
-  <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
-  <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
-  <button onclick="loginUser()" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
-    Login
-  </button>
-</div>
-
-
-<!-- SPLASH -->
-<div id="splash">
-  <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
-  <h1>Balaji Motors – Anavatti</h1>
-  <small>Bajaj Authorised Service Center</small>
-</div>
-
-<div class="mobileHeader">
-  <button onclick="toggleSidebar()">☰</button>
-  <b>Balaji Motors</b>
-</div>
-
-<div class="app" id="app" style="display:none">
-
-  <div class="sidebar">
-    <h2>Balaji<br>Motors</h2>
-    <button onclick="nav(dashboard)">🏠 Dashboard</button>
-    <button onclick="nav(stockView)">📦 Stock</button>
-    <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
-    <button onclick="nav(searchView)">🔍 Search</button>
-    <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
-    <button onclick="exportData()"
-      class="adv">📤 Export</button>
-    <button onclick="importData()"
-      class="adv">📥 Import</button>
-    <button onclick="toggleTheme()">🌙 Theme</button>
-    <button onclick="nav(historyView)">📜 History</button>
-    <button onclick="nav(lowStockView)">⚠️ Low Stock</button>
-    <button onclick="logout()">🚪 Logout</button>
-    <button onclick="nav(revenueView)"
-      class="adv">💰 Revenue</button>
-    <button onclick="nav(savedBillsView)"
-      class="adv">🧾 Saved Bills</button>
-    <button id="changePinBtn" onclick="changePin()"
-      class="adv">🔐 Change PIN</button>
-  </div>
-  <div class="main" id="main"></div>
-
-
-<input type="file" id="fileInput" hidden>
-
 
 </body>
 </html>
