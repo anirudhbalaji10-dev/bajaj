@@ -154,7 +154,8 @@ body.dark::after{
   
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } 
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -172,6 +173,8 @@ const db = getFirestore(app);
 
 window.firebaseLogin = (email, pass) =>
   signInWithEmailAndPassword(auth, email, pass);
+window.firebaseSignup = (email, pass) =>
+  createUserWithEmailAndPassword(auth, email, pass);
 
 window.getUserRole = async (uid) => {
   const snap = await getDoc(doc(db, "users", uid));
@@ -199,6 +202,10 @@ window.cloudLoad = async () => {
   <button onclick="loginUser()" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
     Login
   </button>
+   <br><br>
+<button onclick="signupUser()" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
+  Create New Account
+</button>
 </div>
 
 
@@ -897,6 +904,30 @@ function checkBackupReminder(){
     alert("⚠️ Last backup was " + diffDays + " days ago. Please export backup.");
   }
 }
+async function signupUser(){
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  if(!email || !password){
+    alert("Enter Gmail and password");
+    return;
+  }
+
+  try{
+    const user = await firebaseSignup(email,password);
+    const uid = user.user.uid;
+
+    await setDoc(doc(db,"users",uid),{
+      role:"staff",
+      created:new Date().toISOString()
+    });
+
+    alert("Account created successfully. Now login.");
+  }catch(e){
+    alert(e.message);
+  }
+}
+
 function filterStock(){
   let q = document.getElementById("stockSearch").value.toLowerCase();
   document.querySelectorAll(".stockItem").forEach(card=>{
