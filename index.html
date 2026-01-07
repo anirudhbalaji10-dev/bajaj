@@ -176,24 +176,44 @@ window.fbDoc = doc;
 
 window.firebaseLogin = (email, pass) =>
   signInWithEmailAndPassword(auth, email, pass);
-window.firebaseSignup = (email, pass) =>
-  createUserWithEmailAndPassword(auth, email, pass);
+window.firebaseSignup = async (email, pass) => {
+  const userCred = await createUserWithEmailAndPassword(auth, email, pass);
+  const uid = userCred.user.uid;
+
+  const adminSnap = await getDoc(doc(db,"system","owner"));
+
+  let role = "staff";
+  if(!adminSnap.exists()){
+    role = "owner";
+    await setDoc(doc(db,"system","owner"), { uid });
+  }
+
+  await setDoc(doc(db, "users", uid), { role });
+
+  return userCred;
+};
+
 
 window.getUserRole = async (uid) => {
-  const snap = await getDoc(doc(db, "users", uid));
-  if(!snap.exists()) throw "NO_ROLE";
-  return snap.data().role;
+  let attempts = 0;
+  while(attempts < 10){
+    const snap = await getDoc(doc(db, "users", uid));
+    if(snap.exists()) return snap.data().role;
+    await new Promise(r=>setTimeout(r,300));
+    attempts++;
+  }
+  throw "ROLE_NOT_READY";
 };
+
 
 window.cloudSave = (data) =>
-  setDoc(doc(db,"balaji","data"), data);
+  setDoc(doc(db,"users", currentUID, "app","data"), data);
 
 window.cloudLoad = async () => {
-  const snap = await getDoc(doc(db,"balaji","data"));
+  const snap = await getDoc(doc(db,"users", currentUID, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
-window.firebaseSignup = (email, pass) =>
-  createUserWithEmailAndPassword(auth, email, pass);
+
 </script>
 
 
@@ -257,6 +277,10 @@ window.firebaseSignup = (email, pass) =>
 <script>
   
 let role = "staff";
+let currentUID = "";
+if(localStorage.currentUID){
+  currentUID = localStorage.currentUID;
+}
 let main, fileInput;
 
 window.onload = ()=>{
@@ -269,7 +293,11 @@ function loginUser(){
   const pass  = document.getElementById("password").value;
 
   firebaseLogin(email,pass)
-    .then(u => getUserRole(u.user.uid))
+    .then(u => {
+  currentUID = u.user.uid;
+  localStorage.currentUID = currentUID;  
+  return getUserRole(currentUID);
+})
    .then(r=>{
   role = r;
   document.getElementById("loginBox").style.display="none";
@@ -292,9 +320,14 @@ function loginUser(){
   });
 })
 
-    .catch(()=>{
-      alert("Invalid Gmail or Role not assigned");
-    });
+    .catch(e=>{
+  if(e==="ROLE_NOT_READY"){
+    alert("Account created. Please wait 2 seconds and login again.");
+  } else {
+    alert("Invalid Gmail or Password");
+  }
+});
+
 }
 
   let currentBill = {};
@@ -921,12 +954,6 @@ async function signupUser(){
   try{
     const user = await firebaseSignup(email,password);
     const uid = user.user.uid;
-
-    await setDoc(doc(db,"users",uid),{
-      role:"staff",
-      created:new Date().toISOString()
-    });
-
     alert("Account created successfully. Now login.");
   }catch(e){
     alert(e.message);
@@ -941,6 +968,7 @@ function filterStock(){
   });
 }
 function logout(){
+  localStorage.removeItem("currentUID");
   location.reload();
 }
 
