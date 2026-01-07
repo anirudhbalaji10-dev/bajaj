@@ -170,6 +170,42 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+window.currentUID = "";
+window.role = "staff";
+window.stock = {};
+window.history = [];
+window.bills = [];
+window.customers = {};
+window.meta = {};
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+onAuthStateChanged(auth, async (user) => {
+  if(!user) return;
+
+  currentUID = user.uid;
+  localStorage.currentUID = currentUID;
+
+  try{
+    role = await getUserRole(currentUID);
+
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("app").style.display = "flex";
+
+    const data = await cloudLoad();
+    if(data){
+      stock = data.stock || {};
+      history = data.history || [];
+      bills = data.bills || [];
+      customers = data.customers || {};
+      meta = data.meta || {};
+    }
+
+    dashboard();
+  }
+  catch(err){
+    console.error("Auto-login failed:", err);
+  }
+});
 window.db = db;
 window.fbSetDoc = setDoc;
 window.fbDoc = doc;
@@ -206,10 +242,17 @@ window.getUserRole = async (uid) => {
 };
 
 
-window.cloudSave = (data) =>
-  setDoc(doc(db,"users", currentUID, "app","data"), data);
+window.cloudSave = async (data) => {
+  if(!currentUID) return;
+  try{
+    await setDoc(doc(db,"users", currentUID, "app","data"), data);
+  }catch(e){
+    console.error("Cloud save failed", e);
+  }
+};
 
 window.cloudLoad = async () => {
+  if(!currentUID) return null;
   const snap = await getDoc(doc(db,"users", currentUID, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
@@ -276,8 +319,7 @@ window.cloudLoad = async () => {
 <input type="file" id="fileInput" hidden>
 <script>
   
-let role = "staff";
-let currentUID = "";
+
 if(localStorage.currentUID){
   currentUID = localStorage.currentUID;
 }
@@ -300,6 +342,13 @@ function loginUser(){
 })
    .then(r=>{
   role = r;
+  window.role = role;
+  window.currentUID = currentUID;
+  window.stock = stock;
+  window.history = history;
+  window.bills = bills;
+  window.customers = customers;
+  window.meta = meta;
   document.getElementById("loginBox").style.display="none";
   document.getElementById("app").style.display="flex";
 
@@ -320,12 +369,8 @@ function loginUser(){
   });
 })
 
-    .catch(e=>{
-  if(e==="ROLE_NOT_READY"){
-    alert("Account created. Please wait 2 seconds and login again.");
-  } else {
-    alert("Invalid Gmail or Password");
-  }
+   .catch(e=>{
+  alert(e.message || "Login failed");
 });
 
 }
@@ -357,11 +402,13 @@ function nav(fn){
 /* SECURITY */
 
 /* DATA */
-let meta = JSON.parse(localStorage.meta || "{}");
-let stock=JSON.parse(localStorage.stock||"{}");
-let history=JSON.parse(localStorage.history||"[]");
-let bills = JSON.parse(localStorage.bills || "[]");
-let customers = JSON.parse(localStorage.customers || "{}");
+let role = window.role;
+let currentUID = window.currentUID;
+let stock = window.stock;
+let history = window.history;
+let bills = window.bills;
+let customers = window.customers;
+let meta = window.meta;
 if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
 let selectedLabour = 0;
 /* DASHBOARD */
@@ -952,10 +999,36 @@ async function signupUser(){
   }
 
   try{
-    const user = await firebaseSignup(email,password);
-    const uid = user.user.uid;
-    alert("Account created successfully. Now login.");
-  }catch(e){
+    const userCred = await firebaseSignup(email,password);
+    currentUID = userCred.user.uid;
+    localStorage.currentUID = currentUID;
+
+    // wait for role creation
+    role = await getUserRole(currentUID);
+    window.role = role;
+    window.currentUID = currentUID;
+    window.stock = stock;
+    window.history = history;
+    window.bills = bills;
+    window.customers = customers;
+    window.meta = meta;
+
+
+    document.getElementById("loginBox").style.display="none";
+    document.getElementById("app").style.display="flex";
+
+    const data = await cloudLoad();
+    if(data){
+      stock = data.stock || {};
+      history = data.history || [];
+      bills = data.bills || [];
+      customers = data.customers || {};
+      meta = data.meta || {};
+    }
+
+    dashboard();
+  }
+  catch(e){
     alert(e.message);
   }
 }
@@ -969,8 +1042,9 @@ function filterStock(){
 }
 function logout(){
   localStorage.removeItem("currentUID");
-  location.reload();
+  window.location.reload();
 }
+
 
 </script>
 
