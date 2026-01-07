@@ -268,21 +268,27 @@ window.cloudLoad = async () => {
 window.loginUser = async function(){
   const email = document.getElementById("email").value;
   const pass  = document.getElementById("password").value;
+
   try{
-    await firebaseLogin(email, pass);
+    await signInWithEmailAndPassword(auth, email, pass);
   }catch(e){
-    alert(e.message);
+    alert("Login failed: " + e.message);
   }
 };
 
 window.signupUser = async function(){
   const email = document.getElementById("email").value;
   const pass  = document.getElementById("password").value;
+
   try{
-    await firebaseSignup(email, pass);
+    const userCred = await createUserWithEmailAndPassword(auth, email, pass);
+    const uid = userCred.user.uid;
+
+    await setDoc(doc(db,"users",uid), { role: "staff" });
+
     alert("Account created. Now login.");
   }catch(e){
-    alert(e.message);
+    alert("Signup failed: " + e.message);
   }
 };
 
