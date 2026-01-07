@@ -182,23 +182,23 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/fi
 onAuthStateChanged(auth, async (user) => {
   if(!user) return;
 
-  currentUID = user.uid;
-  localStorage.currentUID = currentUID;
+ window.currentUID = user.uid;
+  localStorage.currentUID = window.currentUID;
 
   try{
-    role = await getUserRole(currentUID);
+   window.role = await getUserRole(window.currentUID);
 
     document.getElementById("loginBox").style.display = "none";
     document.getElementById("app").style.display = "flex";
 
-    const data = await cloudLoad();
-    if(data){
-      stock = data.stock || {};
-      history = data.history || [];
-      bills = data.bills || [];
-      customers = data.customers || {};
-      meta = data.meta || {};
-    }
+   const data = await cloudLoad();
+if(data){
+  window.stock = data.stock || {};
+  window.history = data.history || [];
+  window.bills = data.bills || [];
+  window.customers = data.customers || {};
+  window.meta = data.meta || {};
+}
 
     dashboard();
   }
@@ -243,19 +243,45 @@ window.getUserRole = async (uid) => {
 
 
 window.cloudSave = async (data) => {
-  if(!currentUID) return;
+  if(!window.currentUID) return;
   try{
-    await setDoc(doc(db,"users", currentUID, "app","data"), data);
+    await setDoc(doc(db,"users",window.currentUID, "app","data"), data);
   }catch(e){
     console.error("Cloud save failed", e);
   }
 };
 
 window.cloudLoad = async () => {
-  if(!currentUID) return null;
-  const snap = await getDoc(doc(db,"users", currentUID, "app","data"));
+  if(!window.currentUID) return null;
+  const snap = await getDoc(doc(db,"users", window.currentUID, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
+window.loginUser = async function(){
+  const email = document.getElementById("email").value;
+  const pass  = document.getElementById("password").value;
+  try{
+    await firebaseLogin(email, pass);
+  }catch(e){
+    alert(e.message);
+  }
+};
+
+window.signupUser = async function(){
+  const email = document.getElementById("email").value;
+  const pass  = document.getElementById("password").value;
+  try{
+    await firebaseSignup(email, pass);
+    alert("Account created. Now login.");
+  }catch(e){
+    alert(e.message);
+  }
+};
+
+window.logout = function(){
+  localStorage.removeItem("currentUID");
+  location.reload();
+};
+
 
 </script>
 
@@ -321,7 +347,7 @@ window.cloudLoad = async () => {
   
 
 if(localStorage.currentUID){
-  currentUID = localStorage.currentUID;
+  window.currentUID = localStorage.currentUID;
 }
 let main, fileInput;
 
@@ -330,50 +356,6 @@ window.onload = ()=>{
   fileInput = document.getElementById("fileInput");
 };
 
-function loginUser(){
-  const email = document.getElementById("email").value;
-  const pass  = document.getElementById("password").value;
-
-  firebaseLogin(email,pass)
-    .then(u => {
-  currentUID = u.user.uid;
-  localStorage.currentUID = currentUID;  
-  return getUserRole(currentUID);
-})
-   .then(r=>{
-  role = r;
-  window.role = role;
-  window.currentUID = currentUID;
-  window.stock = stock;
-  window.history = history;
-  window.bills = bills;
-  window.customers = customers;
-  window.meta = meta;
-  document.getElementById("loginBox").style.display="none";
-  document.getElementById("app").style.display="flex";
-
-  cloudLoad().then(data=>{
-    if(data){
-      stock = data.stock || {};
-      history = data.history || [];
-      bills = data.bills || [];
-      customers = data.customers || {};
-      meta = data.meta || {};
-      localStorage.stock = JSON.stringify(stock);
-      localStorage.history = JSON.stringify(history);
-      localStorage.bills = JSON.stringify(bills);
-      localStorage.customers = JSON.stringify(customers);
-      localStorage.meta = JSON.stringify(meta);
-    }
-    dashboard();
-  });
-})
-
-   .catch(e=>{
-  alert(e.message || "Login failed");
-});
-
-}
 
   let currentBill = {};
   if(!localStorage.billNo)
@@ -402,13 +384,7 @@ function nav(fn){
 /* SECURITY */
 
 /* DATA */
-let role = window.role;
-let currentUID = window.currentUID;
-let stock = window.stock;
-let history = window.history;
-let bills = window.bills;
-let customers = window.customers;
-let meta = window.meta;
+
 if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
 let selectedLabour = 0;
 /* DASHBOARD */
@@ -989,49 +965,6 @@ function checkBackupReminder(){
     alert("⚠️ Last backup was " + diffDays + " days ago. Please export backup.");
   }
 }
-async function signupUser(){
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  if(!email || !password){
-    alert("Enter Gmail and password");
-    return;
-  }
-
-  try{
-    const userCred = await firebaseSignup(email,password);
-    currentUID = userCred.user.uid;
-    localStorage.currentUID = currentUID;
-
-    // wait for role creation
-    role = await getUserRole(currentUID);
-    window.role = role;
-    window.currentUID = currentUID;
-    window.stock = stock;
-    window.history = history;
-    window.bills = bills;
-    window.customers = customers;
-    window.meta = meta;
-
-
-    document.getElementById("loginBox").style.display="none";
-    document.getElementById("app").style.display="flex";
-
-    const data = await cloudLoad();
-    if(data){
-      stock = data.stock || {};
-      history = data.history || [];
-      bills = data.bills || [];
-      customers = data.customers || {};
-      meta = data.meta || {};
-    }
-
-    dashboard();
-  }
-  catch(e){
-    alert(e.message);
-  }
-}
 
 function filterStock(){
   let q = document.getElementById("stockSearch").value.toLowerCase();
@@ -1040,10 +973,7 @@ function filterStock(){
     card.style.display = name.includes(q) ? "block" : "none";
   });
 }
-function logout(){
-  localStorage.removeItem("currentUID");
-  window.location.reload();
-}
+
 
 
 </script>
