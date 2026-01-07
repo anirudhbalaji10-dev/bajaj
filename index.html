@@ -265,32 +265,30 @@ window.cloudLoad = async () => {
   const snap = await getDoc(doc(db,"users", window.currentUID, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
-window.loginUser = async function(){
+document.getElementById("loginBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value;
   const pass  = document.getElementById("password").value;
 
-  try{
+  try {
     await signInWithEmailAndPassword(auth, email, pass);
-  }catch(e){
-    alert("Login failed: " + e.message);
+  } catch(e){
+    alert(e.message);
   }
-};
+});
 
-window.signupUser = async function(){
+document.getElementById("signupBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value;
   const pass  = document.getElementById("password").value;
 
-  try{
-    const userCred = await createUserWithEmailAndPassword(auth, email, pass);
-    const uid = userCred.user.uid;
-
-    await setDoc(doc(db,"users",uid), { role: "staff" });
-
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
     alert("Account created. Now login.");
-  }catch(e){
-    alert("Signup failed: " + e.message);
+  } catch(e){
+    alert(e.message);
   }
-};
+});
+
+
 
 window.logout = function(){
   localStorage.removeItem("currentUID");
@@ -308,11 +306,11 @@ window.logout = function(){
   <h2>Balaji Motors Login</h2>
   <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
   <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
-  <button onclick="loginUser()" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
+  <button onclick="loginBtn" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
     Login
   </button>
    <br><br>
-<button onclick="signupUser()" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
+<button onclick="signupBtn" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
   Create New Account
 </button>
 </div>
