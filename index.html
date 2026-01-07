@@ -170,6 +170,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+window.db = db;
+window.fbSetDoc = setDoc;
+window.fbDoc = doc;
 
 window.firebaseLogin = (email, pass) =>
   signInWithEmailAndPassword(auth, email, pass);
@@ -189,6 +192,8 @@ window.cloudLoad = async () => {
   const snap = await getDoc(doc(db,"balaji","data"));
   return snap.exists() ? snap.data() : null;
 };
+window.firebaseSignup = (email, pass) =>
+  createUserWithEmailAndPassword(auth, email, pass);
 </script>
 
 
