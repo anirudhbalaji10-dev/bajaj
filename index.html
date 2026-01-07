@@ -182,30 +182,39 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/fi
 onAuthStateChanged(auth, async (user) => {
   if(!user) return;
 
- window.currentUID = user.uid;
+  window.currentUID = user.uid;
   localStorage.currentUID = window.currentUID;
 
-  try{
-   window.role = await getUserRole(window.currentUID);
+  setTimeout(async () => {
+    try{
+      window.role = await getUserRole(window.currentUID);
 
-    document.getElementById("loginBox").style.display = "none";
-    document.getElementById("app").style.display = "flex";
+      const loginBox = document.getElementById("loginBox");
+      const appBox   = document.getElementById("app");
 
-   const data = await cloudLoad();
-if(data){
-  window.stock = data.stock || {};
-  window.history = data.history || [];
-  window.bills = data.bills || [];
-  window.customers = data.customers || {};
-  window.meta = data.meta || {};
-}
+      if(loginBox && appBox){
+        loginBox.style.display = "none";
+        appBox.style.display = "flex";
+      }
 
-    dashboard();
-  }
-  catch(err){
-    console.error("Auto-login failed:", err);
-  }
+      const data = await cloudLoad();
+      if(data){
+        stock = data.stock || {};
+        history = data.history || [];
+        bills = data.bills || [];
+        customers = data.customers || {};
+        meta = data.meta || {};
+      }
+
+      dashboard();
+    }
+    catch(err){
+      alert("Login error: " + err);
+      console.error(err);
+    }
+  }, 300);
 });
+
 window.db = db;
 window.fbSetDoc = setDoc;
 window.fbDoc = doc;
