@@ -286,17 +286,26 @@ document.addEventListener("DOMContentLoaded", () => {
    }
  });
 
-  document.getElementById("signupBtn").addEventListener("click", async () => {
+  document.getElementById("loginBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
-   const pass  = document.getElementById("password").value;
+  const pass  = document.getElementById("password").value;
 
-   try {
-     await window.firebaseSignup(email, pass);
-     alert("Account created & logged in successfully.");
-   } catch(e){
-     alert(e.message);
-   }
- });
+  if(!email || !pass){
+    alert("Enter email and password");
+    return;
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e){
+    if(e.code === "auth/user-not-found")
+      alert("Account not found. Please create account first.");
+    else if(e.code === "auth/wrong-password")
+      alert("Incorrect password.");
+    else
+      alert(e.message);
+  }
+});
 
   
 });
