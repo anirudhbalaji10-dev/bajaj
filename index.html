@@ -286,17 +286,18 @@ document.addEventListener("DOMContentLoaded", () => {
    }
  });
 
- document.getElementById("signupBtn").addEventListener("click", async () => {
-   const email = document.getElementById("email").value;
+  document.getElementById("signupBtn").addEventListener("click", async () => {
+  const email = document.getElementById("email").value.trim();
    const pass  = document.getElementById("password").value;
 
    try {
      await window.firebaseSignup(email, pass);
-     alert("Account created successfully. Now login.");
+     alert("Account created & logged in successfully.");
    } catch(e){
      alert(e.message);
    }
  });
+
   
 });
 
