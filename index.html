@@ -300,9 +300,9 @@ document.addEventListener("DOMContentLoaded", () => {
   
 });
 
-
-window.logout = function(){
-  localStorage.removeItem("currentUID");
+window.logout = async function(){
+  await auth.signOut();
+  localStorage.clear();
   location.reload();
 };
 
