@@ -173,14 +173,23 @@ const db = getFirestore(app);
 window.currentUID = "";
 window.role = "staff";
 window.stock = {};
-window.history = [];
+window.serviceHistory = [];
 window.bills = [];
 window.customers = {};
 window.meta = {};
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 onAuthStateChanged(auth, async (user) => {
-  if(!user) return;
+
+  const loginBox = document.getElementById("loginBox");
+  const appBox   = document.getElementById("app");
+  if(!loginBox || !appBox) return;
+
+  if(!user){
+    loginBox.style.display = "block";
+    appBox.style.display = "none";
+    return;
+  }
 
   window.currentUID = user.uid;
   localStorage.currentUID = window.currentUID;
@@ -200,7 +209,7 @@ onAuthStateChanged(auth, async (user) => {
       const data = await cloudLoad();
       if(data){
         stock = data.stock || {};
-        history = data.history || [];
+        serviceHistory = data.serviceHistory || [];
         bills = data.bills || [];
         customers = data.customers || {};
         meta = data.meta || {};
@@ -265,29 +274,31 @@ window.cloudLoad = async () => {
   const snap = await getDoc(doc(db,"users", window.currentUID, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
-document.getElementById("loginBtn").addEventListener("click", async () => {
-  const email = document.getElementById("email").value;
-  const pass  = document.getElementById("password").value;
+document.addEventListener("DOMContentLoaded", () => {
+  
+ document.getElementById("loginBtn").addEventListener("click", async () => {
+   const email = document.getElementById("email").value;
+   const pass  = document.getElementById("password").value;
+   try {
+     await signInWithEmailAndPassword(auth, email, pass);
+   } catch(e){
+     alert(e.message);
+   }
+ });
 
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch(e){
-    alert(e.message);
-  }
+ document.getElementById("signupBtn").addEventListener("click", async () => {
+   const email = document.getElementById("email").value;
+   const pass  = document.getElementById("password").value;
+
+   try {
+     await createUserWithEmailAndPassword(auth, email, pass);
+     alert("Account created. Now login.");
+   } catch(e){
+     alert(e.message);
+   }
+ });
+  
 });
-
-document.getElementById("signupBtn").addEventListener("click", async () => {
-  const email = document.getElementById("email").value;
-  const pass  = document.getElementById("password").value;
-
-  try {
-    await createUserWithEmailAndPassword(auth, email, pass);
-    alert("Account created. Now login.");
-  } catch(e){
-    alert(e.message);
-  }
-});
-
 
 
 window.logout = function(){
@@ -306,11 +317,11 @@ window.logout = function(){
   <h2>Balaji Motors Login</h2>
   <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
   <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
-  <button onclick="loginBtn" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
+  <button id="loginBtn" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
     Login
   </button>
    <br><br>
-<button onclick="signupBtn" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
+<button id="signupBtn" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
   Create New Account
 </button>
 </div>
@@ -342,7 +353,7 @@ window.logout = function(){
     <button onclick="importData()"
       class="adv">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
-    <button onclick="nav(historyView)">📜 History</button>
+    <button onclick="nav(serviceHistoryView)">📜 serviceHistory</button>
     <button onclick="nav(lowStockView)">⚠️ Low Stock</button>
     <button onclick="logout()">🚪 Logout</button>
     <button onclick="nav(revenueView)"
@@ -359,9 +370,10 @@ window.logout = function(){
 <script>
   
 
-if(localStorage.currentUID){
-  window.currentUID = localStorage.currentUID;
-}
+serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
+bills = JSON.parse(localStorage.bills || "[]");
+customers = JSON.parse(localStorage.customers || "{}");
+meta = JSON.parse(localStorage.meta || "{}");
 let main, fileInput;
 
 window.onload = ()=>{
@@ -403,7 +415,7 @@ let selectedLabour = 0;
 /* DASHBOARD */
 function dashboard(){
   let d=new Date(),m=d.getMonth(),y=d.getFullYear();
-  let list=history.filter(x=>{
+  let list=serviceHistory.filter(x=>{
     let t=new Date(x.time);
     return t.getMonth()==m&&t.getFullYear()==y;
   });
@@ -470,16 +482,16 @@ function addStock(){
   let price = +prompt("Selling price (GST included)");
 stock[n] = { qty: q, cost: c, price: price };
   stockView();
-  cloudSave({ stock, history, bills, customers, meta });
+  cloudSave({ stock, serviceHistory, bills, customers, meta });
 }
 function editStock(i){
   let q=+prompt("Qty"); if(q<0) return;
   stock[i].qty=q;
   stockView();
-  cloudSave({ stock, history, bills, customers, meta });
+  cloudSave({ stock, serviceHistory, bills, customers, meta });
 }
 function delStock(i){
-  if(confirm("Delete?")){delete stock[i];stockView();cloudSave({ stock, history, bills, customers, meta });}
+  if(confirm("Delete?")){delete stock[i];stockView();cloudSave({ stock, serviceHistory, bills, customers, meta });}
 }
 function useStock(i){
   let q = +prompt("Quantity used:");
@@ -518,7 +530,7 @@ localStorage.customers = JSON.stringify(customers);
 
   let time = new Date().toLocaleString();
 
-  history.unshift({
+  serviceHistory.unshift({
     cust,
     phone,
     vehicle,
@@ -528,9 +540,9 @@ localStorage.customers = JSON.stringify(customers);
     time
   });
 
-  localStorage.history = JSON.stringify(history);
+  localStorage.serviceHistory = JSON.stringify(serviceHistory);
   localStorage.stock = JSON.stringify(stock);
-  cloudSave({ stock, history, bills, customers, meta });
+  cloudSave({ stock, serviceHistory, bills, customers, meta });
 
   let msg =
 `Hello ${cust},
@@ -600,7 +612,7 @@ function revenueView(){
 /* MONTHLY */
 function monthlyCustomers(){
   let y=+prompt("Year"),m=+prompt("Month (1-12)")-1;
-  let list=history.filter(x=>{
+  let list=serviceHistory.filter(x=>{
     let d=new Date(x.time);
     return d.getFullYear()==y&&d.getMonth()==m;
   });
@@ -617,7 +629,7 @@ function searchView(){
   let q = prompt("Customer name / Vehicle");
   if(!q) return;
 
-  let list = history.filter(x =>
+  let list = serviceHistory.filter(x =>
     x.cust.toLowerCase().startsWith(q.toLowerCase()) ||
     x.vehicle.toLowerCase().includes(q.toLowerCase())
   );
@@ -650,7 +662,7 @@ function invoiceView(){
   let no=localStorage.invoiceNo.padStart(4,"0");
   localStorage.invoiceNo=+localStorage.invoiceNo+1+"";
   let total=0;
-  history.slice(0,5).forEach(x=>{
+  serviceHistory.slice(0,5).forEach(x=>{
     total+=x.qty*(stock[x.item]?.cost||0);
   });
   let gst=total*0.18;
@@ -663,11 +675,11 @@ function invoiceView(){
   </div>`;
 }
 
-/* HISTORY */
-function historyView(){
-  if(!history.length){main.innerHTML=`<div class="card">No history</div>`;return;}
-  let h=`<div class="card"><h3>History</h3></div>`;
-  history.forEach(x=>{let repeat =
+/* serviceHistory */
+function serviceHistoryView(){
+  if(!serviceHistory.length){main.innerHTML=`<div class="card">No serviceHistory</div>`;return;}
+  let h=`<div class="card"><h3>serviceHistory</h3></div>`;
+  serviceHistory.forEach(x=>{let repeat =
   customers[x.phone]?.visits > 1
     ? " ⭐ Repeat"
     : "";
@@ -680,7 +692,7 @@ function historyView(){
 function exportData(){
   meta.lastBackup = new Date().toISOString();
 localStorage.meta = JSON.stringify(meta);
-  let b=new Blob([JSON.stringify({stock,history},null,2)],{type:"application/json"});
+  let b=new Blob([JSON.stringify({stock,serviceHistory},null,2)],{type:"application/json"});
   let a=document.createElement("a");
   a.href=URL.createObjectURL(b);
   a.download="balaji-motors-backup.json";
@@ -696,11 +708,11 @@ fileInput.onchange=e=>{
   r.onload=ev=>{
     let d=JSON.parse(ev.target.result);
     stock=d.stock||{};
-    history=d.history||[];
+    serviceHistory=d.serviceHistory||[];
     localStorage.stock=JSON.stringify(stock);
-    localStorage.history=JSON.stringify(history);
+    localStorage.serviceHistory=JSON.stringify(serviceHistory);
     dashboard();
-    cloudSave({ stock, history, bills, customers, meta });
+    cloudSave({ stock, serviceHistory, bills, customers, meta });
   };
   r.readAsText(e.target.files[0]);
 };
@@ -810,7 +822,7 @@ function generateTodayBill(){
 
   let today = new Date().toDateString();
 
-  let items = history.filter(h =>
+  let items = serviceHistory.filter(h =>
     h.phone === phone &&
     h.vehicle === vehicle &&
     new Date(h.time).toDateString() === today
@@ -928,7 +940,7 @@ function printBill(){
   });
 
   localStorage.bills = JSON.stringify(bills);
-  cloudSave({ stock, history, bills, customers, meta });
+  cloudSave({ stock, serviceHistory, bills, customers, meta });
 
   window.print();
 }
