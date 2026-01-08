@@ -275,16 +275,6 @@ window.cloudLoad = async () => {
   return snap.exists() ? snap.data() : null;
 };
 document.addEventListener("DOMContentLoaded", () => {
-  
- document.getElementById("loginBtn").addEventListener("click", async () => {
-   const email = document.getElementById("email").value;
-   const pass  = document.getElementById("password").value;
-   try {
-     await signInWithEmailAndPassword(auth, email, pass);
-   } catch(e){
-     alert(e.message);
-   }
- });
 
   document.getElementById("loginBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
@@ -302,6 +292,28 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Account not found. Please create account first.");
     else if(e.code === "auth/wrong-password")
       alert("Incorrect password.");
+    else
+      alert(e.message);
+  }
+});
+
+  document.getElementById("signupBtn").addEventListener("click", async () => {
+  const email = document.getElementById("email").value.trim();
+  const pass  = document.getElementById("password").value;
+
+  if(!email || !pass){
+    alert("Enter email and password");
+    return;
+  }
+
+  try {
+    await window.firebaseSignup(email, pass);
+    alert("Account created successfully. You are now logged in.");
+  } catch(e){
+    if(e.code === "auth/email-already-in-use")
+      alert("This email already has an account. Please login.");
+    else if(e.code === "auth/weak-password")
+      alert("Password must be at least 6 characters.");
     else
       alert(e.message);
   }
