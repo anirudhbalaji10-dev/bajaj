@@ -291,8 +291,8 @@ document.addEventListener("DOMContentLoaded", () => {
    const pass  = document.getElementById("password").value;
 
    try {
-     await createUserWithEmailAndPassword(auth, email, pass);
-     alert("Account created. Now login.");
+     await window.firebaseSignup(email, pass);
+     alert("Account created successfully. Now login.");
    } catch(e){
      alert(e.message);
    }
