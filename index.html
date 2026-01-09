@@ -156,7 +156,9 @@ body.dark::after{
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } 
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } 
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDORVDe8uzAbCPWVDKc44YZbMKBTlRO6tU",
@@ -170,14 +172,46 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 window.currentUID = "";
 window.role = "staff";
+window.currentShowroom = "";
 window.stock = {};
 window.serviceHistory = [];
 window.bills = [];
 window.customers = {};
 window.meta = {};
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+window.applyShowroomBranding = () => {
+  const name = window.showroomProfile?.name || "My Showroom";
+
+  document.getElementById("showroomTitle").innerText = name;
+  document.getElementById("showroomHeader").innerText = name;
+  document.getElementById("sidebarShowroom").innerText = name;
+
+  const dash = document.getElementById("dashShowroom");
+  if(dash) dash.innerText = name;
+
+  const loginTitle = document.getElementById("loginShowroomTitle");
+  if(loginTitle) loginTitle.innerText = name;
+
+  const footer = document.getElementById("footerShowroom");
+  if(footer) footer.innerText = name;
+};
+
+window.getUserProfile = async (uid) => {
+  const snap = await getDoc(doc(db, "users", uid));
+  if(!snap.exists()){
+    throw "User profile not found in database";
+  }
+  return snap.data();
+};  
+
+window.getShowroomProfile = async (sid) => {
+  const snap = await getDoc(doc(db,"showrooms", sid));
+  return snap.exists() ? snap.data() : null;
+};
 
 onAuthStateChanged(auth, async (user) => {
 
@@ -196,7 +230,9 @@ onAuthStateChanged(auth, async (user) => {
 
   setTimeout(async () => {
     try{
-      window.role = await getUserRole(window.currentUID);
+      const profile = await getUserProfile(window.currentUID);
+      window.role = profile.role;
+      window.currentShowroom = profile.showroomId;
 
       const loginBox = document.getElementById("loginBox");
       const appBox   = document.getElementById("app");
@@ -206,23 +242,9 @@ onAuthStateChanged(auth, async (user) => {
         appBox.style.display = "flex";
       }
 
-      const data = await cloudLoad();
-      if(data){
-        stock = data.stock || {};
-        serviceHistory = data.serviceHistory || [];
-        bills = data.bills || [];
-        customers = data.customers || {};
-        meta = data.meta || {};
-      }
-
-      dashboard();
-    }
-    catch(err){
-      alert("Login error: " + err);
-      console.error(err);
-    }
-  }, 300);
-});
+     const showroomProfile = await getShowroomProfile(window.currentShowroom);
+window.showroomProfile = showroomProfile || {};
+applyShowroomBranding();
 
 window.db = db;
 window.fbSetDoc = setDoc;
@@ -230,46 +252,17 @@ window.fbDoc = doc;
 
 window.firebaseLogin = (email, pass) =>
   signInWithEmailAndPassword(auth, email, pass);
-window.firebaseSignup = async (email, pass) => {
-  const userCred = await createUserWithEmailAndPassword(auth, email, pass);
-  const uid = userCred.user.uid;
-
-  // generate showroom id for owner
-  const showroomId = "SR-" + Date.now();
-
-  // create showroom
-  await setDoc(doc(db, "showrooms", showroomId), {
-    ownerUID: uid,
-    createdAt: new Date().toISOString()
-  });
-
-  // save user data
-  await setDoc(doc(db, "users", uid), {
-    role: "owner",
-    showroomId: showroomId
-  });
-
-  return userCred;
-};
-
-window.getUserRole = async (uid) => {
-  while(true){
-    const snap = await getDoc(doc(db, "users", uid));
-    if(snap.exists()) return snap.data().role;
-    await new Promise(r => setTimeout(r, 500));
-  }
-};
 
 window.cloudSave = async (data) => {
-  if(!window.currentUID) return;
+  if(!window.currentShowroom) return;
   try{
     data._lastUpdated = new Date().toISOString();
     data._by = window.currentUID;
 
     await setDoc(
-      doc(db,"users",window.currentUID,"app","data"),
+      doc(db,"showrooms",window.currentShowroom,"app","data"),
       data,
-      { merge: true }
+      { merge:true }
     );
   }catch(e){
     console.error("Cloud save failed", e);
@@ -277,10 +270,12 @@ window.cloudSave = async (data) => {
 };
 
 window.cloudLoad = async () => {
-  if(!window.currentUID) return null;
-  const snap = await getDoc(doc(db,"users", window.currentUID, "app","data"));
+  if(!window.currentShowroom) return null;
+  const snap = await getDoc(doc(db,"showrooms", window.currentShowroom, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
+
+
 document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("loginBtn").addEventListener("click", async () => {
@@ -304,9 +299,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-  document.getElementById("signupBtn").addEventListener("click", async () => {
+ document.getElementById("signupBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const pass  = document.getElementById("password").value;
+  const code  = document.getElementById("showroomCode").value.trim();
 
   if(!email || !pass){
     alert("Enter email and password");
@@ -314,20 +310,62 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   try {
-    await window.firebaseSignup(email, pass);
-    alert("Account created. Please login now.");
+    const userCred = await createUserWithEmailAndPassword(auth, email, pass);
+    const uid = userCred.user.uid;
+
+    if(code){
+      // STAFF JOIN FLOW
+      const codeSnap = await getDoc(doc(db,"showroomCodes", code));
+      if(!codeSnap.exists()){
+        alert("Invalid Showroom Code");
+        await userCred.user.delete();
+        return;
+      }
+
+      const showroomId = codeSnap.data().showroomId;
+
+      await setDoc(doc(db,"users",uid),{
+        role:"staff",
+        showroomId
+      });
+
+      alert("Staff account created. Please login.");
+    } 
+    else {
+      // OWNER CREATE FLOW
+      const showroomId = "SR-" + Date.now();
+      const showroomCode = Math.floor(100000 + Math.random()*900000).toString();
+
+     const showroomName = document.getElementById("showroomName").value.trim();
+
+await setDoc(doc(db,"showrooms", showroomId),{
+  ownerUID: uid,
+  code: showroomCode,
+  name: showroomName || "My Showroom",
+  phone: "",
+  address: "",
+  logo: "",
+  createdAt: new Date().toISOString()
+});
+      await setDoc(doc(db,"showroomCodes", showroomCode),{
+        showroomId
+      });
+
+      await setDoc(doc(db,"users",uid),{
+        role:"owner",
+        showroomId
+      });
+
+      alert("Your Showroom Code: " + showroomCode);
+    }
+
     await auth.signOut();
     location.reload();
-  } catch(e){
-    if(e.code === "auth/email-already-in-use")
-      alert("This email already has an account. Please login.");
-    else if(e.code === "auth/weak-password")
-      alert("Password must be at least 6 characters.");
-    else
-      alert(e.message);
+  }
+  catch(e){
+    alert(e.message);
   }
 });
-
   
 });
 
@@ -345,9 +383,11 @@ window.logout = async function(){
 
 <body>
  <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
-  <h2>Balaji Motors Login</h2>
+ <h2 id="loginShowroomTitle">Loading...</h2>
   <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
   <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
+   <input id="showroomCode" placeholder="Showroom Code (Staff only)"
+ style="width:100%;padding:10px;margin-bottom:8px">
   <button id="loginBtn" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
     Login
   </button>
@@ -363,19 +403,19 @@ window.logout = async function(){
 <!-- SPLASH -->
 <div id="splash">
   <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
-  <h1>Balaji Motors – Anavatti</h1>
+  <h1 id="showroomTitle">Loading...</h1>
   <small>Bajaj Authorised Service Center</small>
 </div>
 
 <div class="mobileHeader">
   <button onclick="toggleSidebar()">☰</button>
-  <b>Balaji Motors</b>
+  <b id="showroomHeader">Loading...</b>
 </div>
 
 <div class="app" id="app" style="display:none">
 
   <div class="sidebar">
-    <h2>Balaji<br>Motors</h2>
+    <h2 id="sidebarShowroom">Loading...</h2>
     <button onclick="nav(dashboard)">🏠 Dashboard</button>
     <button onclick="nav(stockView)">📦 Stock</button>
     <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
@@ -395,6 +435,8 @@ window.logout = async function(){
       class="adv">🧾 Saved Bills</button>
     <button id="changePinBtn" onclick="changePin()"
       class="adv">🔐 Change PIN</button>
+    <button onclick="nav(staffManagerView)" class="adv">👥 Manage Staff</button>
+    <button onclick="nav(showroomSettingsView)" class="adv">🏢 Showroom Settings</button>
   </div>
   <div class="main" id="main"></div>
 
@@ -403,10 +445,10 @@ window.logout = async function(){
 <script>
   
 
-serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
-bills = JSON.parse(localStorage.bills || "[]");
-customers = JSON.parse(localStorage.customers || "{}");
-meta = JSON.parse(localStorage.meta || "{}");
+serviceHistory = [];
+bills = [];
+customers = {};
+meta = {};
 let main, fileInput;
 
 window.onload = ()=>{
@@ -455,7 +497,7 @@ function dashboard(){
   let cust=new Set(list.map(x=>x.phone));
   main.innerHTML = `
   <div class="card">
-    <h2>Balaji Motors – Anavatti</h2>
+    <h2 id="dashShowroom">Loading...</h2>
     <p>Bajaj Authorised Service Center</p>
   </div>
 
@@ -468,8 +510,8 @@ function dashboard(){
 
   <div class="card">
   <small>
-    © Balaji Motors – Anavatti<br>
-    Bajaj Authorised Service Center
+   © <span id="footerShowroom">Loading...</span><br>
+    Authorised Service Center
   </small>
 </div>
 `;
@@ -582,12 +624,12 @@ localStorage.customers = JSON.stringify(customers);
 Dear Sir/Madam ,
 
 Your vehicle ${vehicle} service is completed at
-Balaji Motors, Anavatti.
+${window.showroomProfile.name}
 
 🛠️ Service Date: ${time}
 👨‍🔧 Serviced by: ${staff}
 
-Thank you for visiting Bajaj Authorised Service.`;
+Thank you for visiting Authorised Service.`;
 
   main.innerHTML = `
     <div class="card">
@@ -819,7 +861,9 @@ function reprintBill(index){
 
   main.innerHTML = `
     <div class="card" id="billArea">
-      <h2>Balaji Motors – Anavatti</h2>
+     <img src="${window.showroomProfile.logo || ''}" 
+     style="max-width:90px;${window.showroomProfile.logo?'':'display:none'}"><br>
+     <h2>${window.showroomProfile.name}</h2>
       <p><b>Bill No:</b> ${b.billNo}</p>
       <p><b>Date:</b> ${new Date(b.date).toLocaleString()}</p>
       <hr>
@@ -923,9 +967,9 @@ currentBill = {
   </p>
 </div>
     <div class="card" id="billArea">
-      <h2>Balaji Motors – Anavatti</h2>
+      <h2>${window.showroomProfile.name}</h2>
       <p><b>Bill No:</b> ${billNo}</p>
-      <p>Bajaj Authorised Service</p>
+      <p> Authorised Service</p>
       <hr>
 
       <p>
@@ -1032,9 +1076,119 @@ function filterStock(){
   });
 }
 
+async function staffManagerView(){
+  if(role !== "owner"){
+    alert("Access denied");
+    return;
+  }
 
+  main.innerHTML = `<div class="card"><h3>Staff Accounts</h3>Loading...</div>`;
+
+  const q = await getDocs(collection(db,"users"));
+  let h = `<div class="card"><h3>Staff Accounts</h3></div>`;
+
+  q.forEach(docu=>{
+    const u = docu.data();
+    if(u.showroomId === currentShowroom && u.role === "staff"){
+      h += `
+        <div class="card">
+          <b>UID:</b> ${docu.id}<br>
+          Role: Staff<br><br>
+          <button onclick="removeStaff('${docu.id}')">❌ Remove Staff</button>
+        </div>
+      `;
+    }
+  });
+
+  main.innerHTML = h;
+}
+
+async function removeStaff(uid){
+  if(!confirm("Remove this staff account permanently?")) return;
+
+  await setDoc(doc(db,"users",uid),{
+    role:"revoked",
+    showroomId:""
+  });
+
+  alert("Staff access removed.");
+  staffManagerView();
+}
+
+function showroomSettingsView(){
+  if(role !== "owner"){
+    alert("Access denied");
+    return;
+  }
+
+  const p = window.showroomProfile || {};
+
+  main.innerHTML = `
+    <div class="card">
+      <h3>Showroom Settings</h3>
+
+      <label>Name</label>
+      <input id="ss_name" value="${p.name || ""}" style="width:100%;padding:8px"><br><br>
+
+      <label>Phone</label>
+      <input id="ss_phone" value="${p.phone || ""}" style="width:100%;padding:8px"><br><br>
+
+      <label>Address</label>
+      <textarea id="ss_address" style="width:100%;padding:8px">${p.address || ""}</textarea><br><br>
+      
+      <label>Showroom Logo</label>
+<input type="file" id="ss_logo" accept="image/*"><br><br>
+
+<img id="logoPreview" 
+     src="${p.logo || ''}" 
+     style="max-width:120px;${p.logo?'':'display:none'}"><br><br>
+      
+      <button onclick="saveShowroomSettings()" class="big-btn" style="background:#0a2e5c;color:white;border:none;">
+        💾 Save Settings
+      </button>
+    </div>
+  `;
+}
+
+async function saveShowroomSettings(){
+
+  const name = document.getElementById("ss_name").value.trim();
+  const phone = document.getElementById("ss_phone").value.trim();
+  const address = document.getElementById("ss_address").value.trim();
+  const file = document.getElementById("ss_logo").files[0];
+
+  if(!name){
+    alert("Showroom name required");
+    return;
+  }
+
+  let logoURL = window.showroomProfile.logo || "";
+
+  if(file){
+    const logoRef = ref(storage, "showroom-logos/" + currentShowroom + ".png");
+    await uploadBytes(logoRef, file);
+    logoURL = await getDownloadURL(logoRef);
+  }
+
+  await setDoc(doc(db,"showrooms",currentShowroom),{
+    name,
+    phone,
+    address,
+    logo: logoURL
+  },{ merge:true });
+
+  window.showroomProfile = { ...window.showroomProfile, name, phone, address, logo: logoURL };
+  applyShowroomBranding();
+  
+const prev = document.getElementById("logoPreview");
+if(prev && logoURL){
+  prev.src = logoURL + "?t=" + Date.now();
+  prev.style.display = "block";
+}
+  
+  alert("Showroom updated successfully");
+}
 
 </script>
-
 </body>
 </html>
