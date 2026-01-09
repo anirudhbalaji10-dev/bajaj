@@ -234,19 +234,23 @@ window.firebaseSignup = async (email, pass) => {
   const userCred = await createUserWithEmailAndPassword(auth, email, pass);
   const uid = userCred.user.uid;
 
-  const adminSnap = await getDoc(doc(db,"system","owner"));
+  // generate showroom id for owner
+  const showroomId = "SR-" + Date.now();
 
-  let role = "staff";
-  if(!adminSnap.exists()){
-    role = "owner";
-    await setDoc(doc(db,"system","owner"), { uid });
-  }
+  // create showroom
+  await setDoc(doc(db, "showrooms", showroomId), {
+    ownerUID: uid,
+    createdAt: new Date().toISOString()
+  });
 
-  await setDoc(doc(db, "users", uid), { role });
+  // save user data
+  await setDoc(doc(db, "users", uid), {
+    role: "owner",
+    showroomId: showroomId
+  });
 
   return userCred;
 };
-
 
 window.getUserRole = async (uid) => {
   let attempts = 0;
@@ -350,6 +354,8 @@ window.logout = async function(){
     Login
   </button>
    <br><br>
+  <input id="showroomName" placeholder="Showroom Name"
+ style="width:100%;padding:10px;margin-bottom:8px">
 <button id="signupBtn" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
   Create New Account
 </button>
