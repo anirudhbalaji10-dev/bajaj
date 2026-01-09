@@ -419,7 +419,8 @@ await setDoc(doc(db,"showrooms", showroomId),{
   });
  }
     
-
+  };
+  
 window.logout = async function(){
   await auth.signOut();
   localStorage.removeItem("currentUID");
