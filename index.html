@@ -253,16 +253,12 @@ window.firebaseSignup = async (email, pass) => {
 };
 
 window.getUserRole = async (uid) => {
-  let attempts = 0;
-  while(attempts < 10){
+  while(true){
     const snap = await getDoc(doc(db, "users", uid));
     if(snap.exists()) return snap.data().role;
-    await new Promise(r=>setTimeout(r,300));
-    attempts++;
+    await new Promise(r => setTimeout(r, 500));
   }
-  throw "ROLE_NOT_READY";
 };
-
 
 window.cloudSave = async (data) => {
   if(!window.currentUID) return;
@@ -319,7 +315,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   try {
     await window.firebaseSignup(email, pass);
-    alert("Account created successfully. You are now logged in.");
+    alert("Account created. Please login now.");
+    await auth.signOut();
+    location.reload();
   } catch(e){
     if(e.code === "auth/email-already-in-use")
       alert("This email already has an account. Please login.");
