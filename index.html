@@ -221,17 +221,47 @@ window.cloudLoad = async () => {
   return snap.exists() ? snap.data() : null;
 };
   
-onAuthStateChanged(auth, async (user) => {
+
+
+      
+window.db = db;
+window.fbSetDoc = setDoc;
+window.fbDoc = doc;
+
+window.firebaseLogin = (email, pass) =>
+  signInWithEmailAndPassword(auth, email, pass);
+
+window._cloudSave = async (data) => {
+  if(!auth.currentUser || !window.currentShowroom) return;
+  try{
+    data._lastUpdated = new Date().toISOString();
+    data._by = window.currentUID;
+
+    await setDoc(
+      doc(db,"showrooms",window.currentShowroom,"app","data"),
+      data,
+      { merge:true }
+    );
+  }catch(e){
+    console.error("Cloud save failed", e);
+  }
+};
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  onAuthStateChanged(auth, async (user) => {
 
   const loginBox = document.getElementById("loginBox");
   const appBox   = document.getElementById("app");
   if(!loginBox || !appBox) return;
 
-  if(!user){
-    loginBox.style.display = "block";
-    appBox.style.display = "none";
-    return;
-  }
+ if(!user){
+  loginBox.style.display = "block";
+  appBox.style.display = "none";
+  const sp = document.getElementById("splash");
+  if(sp) sp.style.display = "none";
+  return;
+}
 
   window.currentUID = user.uid;
   localStorage.currentUID = window.currentUID;
@@ -297,40 +327,13 @@ onAuthStateChanged(auth, async (user) => {
   waitForMain();
 });
 
-      
-window.db = db;
-window.fbSetDoc = setDoc;
-window.fbDoc = doc;
-
-window.firebaseLogin = (email, pass) =>
-  signInWithEmailAndPassword(auth, email, pass);
-
-window._cloudSave = async (data) => {
-  if(!auth.currentUser || !window.currentShowroom) return;
-  try{
-    data._lastUpdated = new Date().toISOString();
-    data._by = window.currentUID;
-
-    await setDoc(
-      doc(db,"showrooms",window.currentShowroom,"app","data"),
-      data,
-      { merge:true }
-    );
-  }catch(e){
-    console.error("Cloud save failed", e);
-  }
-};
-
-
-document.addEventListener("DOMContentLoaded", () => {
-
   const loginBtn = document.getElementById("loginBtn");
   const signupBtn = document.getElementById("signupBtn");
 
   if(loginBtn){
     loginBtn.addEventListener("click", async () => {
-  const email = document.getElementById("email").value.trim();
-  const pass  = document.getElementById("password").value;
+      const email = document.getElementById("email").value.trim();
+      const pass  = document.getElementById("password").value;
 
   if(!email || !pass){
     alert("Enter email and password");
@@ -339,7 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   try {
     await signInWithEmailAndPassword(auth, email, pass);
-  } catch(e){
+   } catch(e){
     if(e.code === "auth/user-not-found")
       alert("Account not found. Please create account first.");
     else if(e.code === "auth/wrong-password")
@@ -348,6 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
       alert(e.message);
   }
 });
+}
 
   if(signupBtn){
     signupBtn.addEventListener("click", async () => {
@@ -380,14 +384,12 @@ document.addEventListener("DOMContentLoaded", () => {
         showroomId
       });
 
-      alert("Staff account created. Please login.");
-    } 
-    else {
+      alert("Staff account created. Please login.") 
+    } else {
       // OWNER CREATE FLOW
       const showroomId = "SR-" + Date.now();
       const showroomCode = Math.floor(100000 + Math.random()*900000).toString();
-
-     const showroomName = document.getElementById("showroomName").value.trim();
+      const showroomName = document.getElementById("showroomName").value.trim();
 
 await setDoc(doc(db,"showrooms", showroomId),{
   ownerUID: uid,
@@ -398,26 +400,27 @@ await setDoc(doc(db,"showrooms", showroomId),{
   logo: "",
   createdAt: new Date().toISOString()
 });
-      await setDoc(doc(db,"showroomCodes", showroomCode),{
-        showroomId
-      });
+await setDoc(doc(db,"showroomCodes", showroomCode),{
+  showroomId
+});
 
-      await setDoc(doc(db,"users",uid),{
-        role:"owner",
-        showroomId
-      });
+await setDoc(doc(db,"users",uid),{
+     role:"owner",
+     showroomId 
+});
 
       alert("Your Showroom Code: " + showroomCode);
     }
 
     await auth.signOut();
     location.reload();
-  }
-  catch(e){
+  } catch(e){
     alert(e.message);
   }
   });
- });
+ }
+  
+});
   
 window.logout = async function(){
   await auth.signOut();
