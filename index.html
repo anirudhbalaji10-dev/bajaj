@@ -417,9 +417,7 @@ await setDoc(doc(db,"showrooms", showroomId),{
     alert(e.message);
   }
   });
- }
-    
-  };
+ });
   
 window.logout = async function(){
   await auth.signOut();
