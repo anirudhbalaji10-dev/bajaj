@@ -203,12 +203,39 @@ window.applyShowroomBranding = () => {
 };
 
 window.getUserProfile = async (uid) => {
-  const snap = await getDoc(doc(db, "users", uid));
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+
   if(!snap.exists()){
-    throw "User profile not found in database";
+    const user = auth.currentUser;
+    if(!user) throw "Auth lost";
+
+    // 🔧 AUTO-CREATE PROFILE (recovery)
+    const showroomId = "SR-" + Date.now();
+
+    await setDoc(doc(db,"showrooms", showroomId),{
+  ownerUID: uid,
+  code: "",
+  name: "My Showroom",
+  phone: "",
+  address: "",
+  logo: "",
+  createdAt: new Date().toISOString()
+});
+
+    await setDoc(ref,{
+      role: "owner",
+      showroomId
+    });
+
+    return {
+      role: "owner",
+      showroomId
+    };
   }
+
   return snap.data();
-};  
+};
 
 window.getShowroomProfile = async (sid) => {
   const snap = await getDoc(doc(db,"showrooms", sid));
@@ -248,180 +275,105 @@ window._cloudSave = async (data) => {
 };
 
 
-document.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("load", () => {
+
+  // 🔓 SAFETY SPLASH RELEASE
+setTimeout(() => {
+  const sp = document.getElementById("splash");
+  const loginBox = document.getElementById("loginBox");
+  if(sp) sp.style.display = "none";
+  if(loginBox && !auth.currentUser){
+    loginBox.style.display = "block";
+  }
+}, 2500);
+
   onAuthStateChanged(auth, async (user) => {
 
-  const loginBox = document.getElementById("loginBox");
-  const appBox   = document.getElementById("app");
-  if(!loginBox || !appBox) return;
+    const loginBox = document.getElementById("loginBox");
+    const appBox   = document.getElementById("app");
 
- if(!user){
-  loginBox.style.display = "block";
-  appBox.style.display = "none";
-  const sp = document.getElementById("splash");
-  if(sp) sp.style.display = "none";
-  return;
-}
+    if(!loginBox || !appBox) return;
 
-  window.currentUID = user.uid;
-  localStorage.currentUID = window.currentUID;
+    if(!user){
+      loginBox.style.display = "block";
+      appBox.style.display = "none";
+      const sp = document.getElementById("splash");
+      if(sp) sp.style.display = "none";
+      return;
+    }
 
-  let profile;
-  try{
-    profile = await getUserProfile(user.uid);
-  }catch(e){
-    alert("User profile missing. Please login again.");
-    await auth.signOut();
-    return;
-  }
+    window.currentUID = user.uid;
+    localStorage.currentUID = user.uid;
 
-  if(profile.role === "revoked"){
-    alert("Your access has been revoked.");
-    await auth.signOut();
-    return;
-  }
+    let profile;
+    try{
+      profile = await getUserProfile(user.uid);
+    }catch(e){
+      alert("User profile missing. Please login again.");
+      await auth.signOut();
+      return;
+    }
 
-  window.role = profile.role;
-  window.currentShowroom = profile.showroomId;
+    if(profile.role === "revoked"){
+      alert("Your access has been revoked.");
+      await auth.signOut();
+      return;
+    }
 
-  loginBox.style.display = "none";
-  appBox.style.display = "flex";
+    window.role = profile.role;
+    window.currentShowroom = profile.showroomId;
 
-  setTimeout(() => {
-    const sp = document.getElementById("splash");
-    if(sp) sp.style.display = "none";
-  }, 400);
+    loginBox.style.display = "none";
+    appBox.style.display = "flex";
 
-  window.showroomProfile = await getShowroomProfile(window.currentShowroom) || {};
-  applyShowroomBranding();
+    setTimeout(()=>{
+      const sp = document.getElementById("splash");
+      if(sp) sp.style.display = "none";
+    },400);
 
-  const cloudData = await window.cloudLoad();
+    window.showroomProfile = await getShowroomProfile(window.currentShowroom) || {};
+    applyShowroomBranding();
 
-  if(cloudData){
-    stock = cloudData.stock || {};
-    serviceHistory = cloudData.serviceHistory || [];
-    bills = cloudData.bills || [];
-    customers = cloudData.customers || {};
-    meta = cloudData.meta || {};
-  } else {
-    stock = JSON.parse(localStorage.stock || "{}");
-    serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
-    bills = JSON.parse(localStorage.bills || "[]");
-    customers = JSON.parse(localStorage.customers || "{}");
-    meta = JSON.parse(localStorage.meta || "{}");
-  }
+    const cloudData = await window.cloudLoad();
 
-  localStorage.stock = JSON.stringify(stock);
-  localStorage.serviceHistory = JSON.stringify(serviceHistory);
-  localStorage.bills = JSON.stringify(bills);
-  localStorage.customers = JSON.stringify(customers);
-  localStorage.meta = JSON.stringify(meta);
+    if(cloudData){
+      stock = cloudData.stock || {};
+      serviceHistory = cloudData.serviceHistory || [];
+      bills = cloudData.bills || [];
+      customers = cloudData.customers || {};
+      meta = cloudData.meta || {};
+    } else {
+      stock = JSON.parse(localStorage.stock || "{}");
+      serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
+      bills = JSON.parse(localStorage.bills || "[]");
+      customers = JSON.parse(localStorage.customers || "{}");
+      meta = JSON.parse(localStorage.meta || "{}");
+    }
 
-  const waitForMain = () => {
+    localStorage.stock = JSON.stringify(stock);
+    localStorage.serviceHistory = JSON.stringify(serviceHistory);
+    localStorage.bills = JSON.stringify(bills);
+    localStorage.customers = JSON.stringify(customers);
+    localStorage.meta = JSON.stringify(meta);
+
     if(window.main){
       dashboard();
     } else {
-      setTimeout(waitForMain, 100);
-    }
-  };
-  waitForMain();
-});
-
-  const loginBtn = document.getElementById("loginBtn");
-  const signupBtn = document.getElementById("signupBtn");
-
-  if(loginBtn){
-    loginBtn.addEventListener("click", async () => {
-      const email = document.getElementById("email").value.trim();
-      const pass  = document.getElementById("password").value;
-
-  if(!email || !pass){
-    alert("Enter email and password");
-    return;
-  }
-
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-   } catch(e){
-    if(e.code === "auth/user-not-found")
-      alert("Account not found. Please create account first.");
-    else if(e.code === "auth/wrong-password")
-      alert("Incorrect password.");
-    else
-      alert(e.message);
-  }
-});
-}
-
-  if(signupBtn){
-    signupBtn.addEventListener("click", async () => {
-  const email = document.getElementById("email").value.trim();
-  const pass  = document.getElementById("password").value;
-  const code  = document.getElementById("showroomCode").value.trim();
-
-  if(!email || !pass){
-    alert("Enter email and password");
-    return;
-  }
-
-  try {
-    const userCred = await createUserWithEmailAndPassword(auth, email, pass);
-    const uid = userCred.user.uid;
-
-    if(code){
-      // STAFF JOIN FLOW
-      const codeSnap = await getDoc(doc(db,"showroomCodes", code));
-      if(!codeSnap.exists()){
-        alert("Invalid Showroom Code");
-        await userCred.user.delete();
-        return;
-      }
-
-      const showroomId = codeSnap.data().showroomId;
-
-      await setDoc(doc(db,"users",uid),{
-        role:"staff",
-        showroomId
-      });
-
-      alert("Staff account created. Please login.") 
-    } else {
-      // OWNER CREATE FLOW
-      const showroomId = "SR-" + Date.now();
-      const showroomCode = Math.floor(100000 + Math.random()*900000).toString();
-      const showroomName = document.getElementById("showroomName").value.trim();
-
-await setDoc(doc(db,"showrooms", showroomId),{
-  ownerUID: uid,
-  code: showroomCode,
-  name: showroomName || "My Showroom",
-  phone: "",
-  address: "",
-  logo: "",
-  createdAt: new Date().toISOString()
-});
-await setDoc(doc(db,"showroomCodes", showroomCode),{
-  showroomId
-});
-
-await setDoc(doc(db,"users",uid),{
-     role:"owner",
-     showroomId 
-});
-
-      alert("Your Showroom Code: " + showroomCode);
+      setTimeout(dashboard,300);
     }
 
-    await auth.signOut();
-    location.reload();
-  } catch(e){
-    alert(e.message);
-  }
   });
- }
-  
+
 });
-  
+
+window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+window.getDoc = getDoc;
+window.setDoc = setDoc;
+window.doc = doc;
+window.auth = auth;
+window.db = db;
+window.firebaseLogin = (email, pass) =>
+  signInWithEmailAndPassword(auth, email, pass);
 window.logout = async function(){
   await auth.signOut();
   localStorage.removeItem("currentUID");
@@ -1132,7 +1084,7 @@ async function staffManagerView(){
 
   main.innerHTML = `<div class="card"><h3>Staff Accounts</h3>Loading...</div>`;
 
-  const q = await getDocs(collection(db,"users"));
+  const q = await getDocs(collection(window.db,"users"));
   let h = `<div class="card"><h3>Staff Accounts</h3></div>`;
 
   q.forEach(docu=>{
@@ -1154,7 +1106,7 @@ async function staffManagerView(){
 async function removeStaff(uid){
   if(!confirm("Remove this staff account permanently?")) return;
 
-  await setDoc(doc(db,"users",uid),{
+  await window.setDoc(window.doc(window.db,"users",uid),{
     role:"revoked",
     showroomId:""
   });
@@ -1237,6 +1189,87 @@ if(prev && logoURL){
   alert("Showroom updated successfully");
 }
 
+</script>
+<script>
+window.addEventListener("load", () => {
+
+  const loginBtn = document.getElementById("loginBtn");
+  const signupBtn = document.getElementById("signupBtn");
+
+  loginBtn.onclick = async () => {
+    const email = document.getElementById("email").value.trim();
+    const pass  = document.getElementById("password").value;
+
+    if(!email || !pass){
+      alert("Enter email and password");
+      return;
+    }
+
+    try {
+      await window.firebaseLogin(email, pass);
+    } catch(e){
+      alert(e.message);
+    }
+  };
+
+  signupBtn.onclick = async () => {
+    const email = document.getElementById("email").value.trim();
+    const pass  = document.getElementById("password").value;
+    const code  = document.getElementById("showroomCode").value.trim();
+    const name  = document.getElementById("showroomName").value.trim();
+
+    if(!email || !pass){
+      alert("Enter email and password");
+      return;
+    }
+
+    try {
+      const userCred = await window.createUserWithEmailAndPassword(window.auth, email, pass);
+      const uid = userCred.user.uid;
+
+      if(code){
+        const snap = await window.getDoc(window.doc(window.db,"showroomCodes", code));
+        if(!snap.exists()){
+          alert("Invalid Showroom Code");
+          await userCred.user.delete();
+          return;
+        }
+
+        await window.setDoc(window.doc(window.db,"users",uid),{
+          role:"staff",
+          showroomId: snap.data().showroomId
+        });
+
+        alert("Staff account created. Please login.");
+      } else {
+        const showroomId = "SR-" + Date.now();
+        const showroomCode = Math.floor(100000 + Math.random()*900000).toString();
+
+        await window.setDoc(window.doc(window.db,"showrooms", showroomId),{
+          ownerUID: uid,
+          code: showroomCode,
+          name: name || "My Showroom",
+          phone:"",
+          address:"",
+          logo:"",
+          createdAt: new Date().toISOString()
+        });
+
+        await window.setDoc(window.doc(window.db,"showroomCodes", showroomCode),{ showroomId });
+        await window.setDoc(window.doc(window.db,"users",uid),{ role:"owner", showroomId });
+
+        alert("Your Showroom Code: " + showroomCode);
+      }
+
+      await window.auth.signOut();
+      location.reload();
+
+    } catch(e){
+      alert(e.message);
+    }
+  };
+
+});
 </script>
 </body>
 </html>
