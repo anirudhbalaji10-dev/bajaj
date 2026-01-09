@@ -236,78 +236,66 @@ onAuthStateChanged(auth, async (user) => {
   window.currentUID = user.uid;
   localStorage.currentUID = window.currentUID;
 
-  setTimeout(async () => {
-    try{
-      let profile;
-try{
-  profile = await getUserProfile(window.currentUID);
-}catch(e){
-  alert("User profile missing. Please login again.");
-  await auth.signOut();
-  return;
-}
-      window.role = profile.role;
-      // 🚫 If staff access is revoked – logout immediately
-if(profile.role === "revoked"){
-  alert("Your access has been revoked by the owner.");
-  await auth.signOut();
-  return;
-}
-
-      window.currentShowroom = profile.showroomId;
-
-      const loginBox = document.getElementById("loginBox");
-      const appBox   = document.getElementById("app");
-
-      if(loginBox && appBox){
-        loginBox.style.display = "none";
-        appBox.style.display = "flex";
-        // 👮 Owner only buttons control
-if(profile.role !== "owner"){
-  const pinBtn = document.getElementById("changePinBtn");
-  if(pinBtn) pinBtn.style.display = "none";
-}
-
-    setTimeout(() => {
-  const sp = document.getElementById("splash");
-  if(sp) sp.style.display = "none";
-}, 400);
-      }
-
-     const showroomProfile = await getShowroomProfile(window.currentShowroom);
-window.showroomProfile = showroomProfile || {};
-applyShowroomBranding();
-  
-const cloudData = await window.cloudLoad();
-
-if(cloudData){
-  stock = cloudData.stock || {};
-  serviceHistory = cloudData.serviceHistory || [];
-  bills = cloudData.bills || [];
-  customers = cloudData.customers || {};
-  meta = cloudData.meta || {};
-}
-else {
-  stock = JSON.parse(localStorage.stock || "{}");
-  serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
-  bills = JSON.parse(localStorage.bills || "[]");
-  customers = JSON.parse(localStorage.customers || "{}");
-  meta = JSON.parse(localStorage.meta || "{}");
-}
-
-localStorage.stock = JSON.stringify(stock);
-localStorage.serviceHistory = JSON.stringify(serviceHistory);
-localStorage.bills = JSON.stringify(bills);
-localStorage.customers = JSON.stringify(customers);
-localStorage.meta = JSON.stringify(meta);
-const waitForMain = () => {
-  if(window.main){
-    dashboard();
-  } else {
-    setTimeout(waitForMain, 100);
+  let profile;
+  try{
+    profile = await getUserProfile(user.uid);
+  }catch(e){
+    alert("User profile missing. Please login again.");
+    await auth.signOut();
+    return;
   }
-};
-waitForMain();
+
+  if(profile.role === "revoked"){
+    alert("Your access has been revoked.");
+    await auth.signOut();
+    return;
+  }
+
+  window.role = profile.role;
+  window.currentShowroom = profile.showroomId;
+
+  loginBox.style.display = "none";
+  appBox.style.display = "flex";
+
+  setTimeout(() => {
+    const sp = document.getElementById("splash");
+    if(sp) sp.style.display = "none";
+  }, 400);
+
+  window.showroomProfile = await getShowroomProfile(window.currentShowroom) || {};
+  applyShowroomBranding();
+
+  const cloudData = await window.cloudLoad();
+
+  if(cloudData){
+    stock = cloudData.stock || {};
+    serviceHistory = cloudData.serviceHistory || [];
+    bills = cloudData.bills || [];
+    customers = cloudData.customers || {};
+    meta = cloudData.meta || {};
+  } else {
+    stock = JSON.parse(localStorage.stock || "{}");
+    serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
+    bills = JSON.parse(localStorage.bills || "[]");
+    customers = JSON.parse(localStorage.customers || "{}");
+    meta = JSON.parse(localStorage.meta || "{}");
+  }
+
+  localStorage.stock = JSON.stringify(stock);
+  localStorage.serviceHistory = JSON.stringify(serviceHistory);
+  localStorage.bills = JSON.stringify(bills);
+  localStorage.customers = JSON.stringify(customers);
+  localStorage.meta = JSON.stringify(meta);
+
+  const waitForMain = () => {
+    if(window.main){
+      dashboard();
+    } else {
+      setTimeout(waitForMain, 100);
+    }
+  };
+  waitForMain();
+});
 
       
 window.db = db;
@@ -318,7 +306,7 @@ window.firebaseLogin = (email, pass) =>
   signInWithEmailAndPassword(auth, email, pass);
 
 window._cloudSave = async (data) => {
-  if(!window.currentShowroom) return;
+  if(!auth.currentUser || !window.currentShowroom) return;
   try{
     data._lastUpdated = new Date().toISOString();
     data._by = window.currentUID;
@@ -510,6 +498,22 @@ window.logout = async function(){
 document.addEventListener("DOMContentLoaded", ()=>{
   window.main = document.getElementById("main");
   window.fileInput = document.getElementById("fileInput");
+
+  if(window.fileInput){
+    window.fileInput.onchange = e=>{
+      let r=new FileReader();
+      r.onload=ev=>{
+        let d=JSON.parse(ev.target.result);
+        stock=d.stock||{};
+        serviceHistory=d.serviceHistory||[];
+        localStorage.stock=JSON.stringify(stock);
+        localStorage.serviceHistory=JSON.stringify(serviceHistory);
+        dashboard();
+        cloudSave({ stock, serviceHistory, bills, customers, meta });
+      };
+      r.readAsText(e.target.files[0]);
+    };
+  }
 });
   
 window.cloudSave = function(data){
@@ -682,7 +686,7 @@ localStorage.customers = JSON.stringify(customers);
 Dear Sir/Madam ,
 
 Your vehicle ${vehicle} service is completed at
-${window.showroomProfile.name}
+${window.showroomProfile?.name || "Our Service Center"}
 
 🛠️ Service Date: ${time}
 👨‍🔧 Serviced by: ${staff}
@@ -834,20 +838,6 @@ function importData(){
   if(!fileInput){ alert("File system not ready"); return; }
   fileInput.click();
 }
-
-fileInput.onchange=e=>{
-  let r=new FileReader();
-  r.onload=ev=>{
-    let d=JSON.parse(ev.target.result);
-    stock=d.stock||{};
-    serviceHistory=d.serviceHistory||[];
-    localStorage.stock=JSON.stringify(stock);
-    localStorage.serviceHistory=JSON.stringify(serviceHistory);
-    dashboard();
-    cloudSave({ stock, serviceHistory, bills, customers, meta });
-  };
-  r.readAsText(e.target.files[0]);
-};
 
 /* PIN CHANGE */
 function changePin(){
