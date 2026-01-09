@@ -154,8 +154,12 @@ body.dark::after{
   
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } 
-from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { 
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } 
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
@@ -181,8 +185,6 @@ window.serviceHistory = [];
 window.bills = [];
 window.customers = {};
 window.meta = {};
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-
 window.applyShowroomBranding = () => {
   const name = window.showroomProfile?.name || "My Showroom";
 
@@ -213,6 +215,12 @@ window.getShowroomProfile = async (sid) => {
   return snap.exists() ? snap.data() : null;
 };
 
+window.cloudLoad = async () => {
+  if(!window.currentShowroom) return null;
+  const snap = await getDoc(doc(db,"showrooms", window.currentShowroom, "app","data"));
+  return snap.exists() ? snap.data() : null;
+};
+  
 onAuthStateChanged(auth, async (user) => {
 
   const loginBox = document.getElementById("loginBox");
@@ -230,8 +238,22 @@ onAuthStateChanged(auth, async (user) => {
 
   setTimeout(async () => {
     try{
-      const profile = await getUserProfile(window.currentUID);
+      let profile;
+try{
+  profile = await getUserProfile(window.currentUID);
+}catch(e){
+  alert("User profile missing. Please login again.");
+  await auth.signOut();
+  return;
+}
       window.role = profile.role;
+      // 🚫 If staff access is revoked – logout immediately
+if(profile.role === "revoked"){
+  alert("Your access has been revoked by the owner.");
+  await auth.signOut();
+  return;
+}
+
       window.currentShowroom = profile.showroomId;
 
       const loginBox = document.getElementById("loginBox");
@@ -240,12 +262,54 @@ onAuthStateChanged(auth, async (user) => {
       if(loginBox && appBox){
         loginBox.style.display = "none";
         appBox.style.display = "flex";
+        // 👮 Owner only buttons control
+if(profile.role !== "owner"){
+  const pinBtn = document.getElementById("changePinBtn");
+  if(pinBtn) pinBtn.style.display = "none";
+}
+
+    setTimeout(() => {
+  const sp = document.getElementById("splash");
+  if(sp) sp.style.display = "none";
+}, 400);
       }
 
      const showroomProfile = await getShowroomProfile(window.currentShowroom);
 window.showroomProfile = showroomProfile || {};
 applyShowroomBranding();
+  
+const cloudData = await window.cloudLoad();
 
+if(cloudData){
+  stock = cloudData.stock || {};
+  serviceHistory = cloudData.serviceHistory || [];
+  bills = cloudData.bills || [];
+  customers = cloudData.customers || {};
+  meta = cloudData.meta || {};
+}
+else {
+  stock = JSON.parse(localStorage.stock || "{}");
+  serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
+  bills = JSON.parse(localStorage.bills || "[]");
+  customers = JSON.parse(localStorage.customers || "{}");
+  meta = JSON.parse(localStorage.meta || "{}");
+}
+
+localStorage.stock = JSON.stringify(stock);
+localStorage.serviceHistory = JSON.stringify(serviceHistory);
+localStorage.bills = JSON.stringify(bills);
+localStorage.customers = JSON.stringify(customers);
+localStorage.meta = JSON.stringify(meta);
+const waitForMain = () => {
+  if(window.main){
+    dashboard();
+  } else {
+    setTimeout(waitForMain, 100);
+  }
+};
+waitForMain();
+
+      
 window.db = db;
 window.fbSetDoc = setDoc;
 window.fbDoc = doc;
@@ -253,7 +317,7 @@ window.fbDoc = doc;
 window.firebaseLogin = (email, pass) =>
   signInWithEmailAndPassword(auth, email, pass);
 
-window.cloudSave = async (data) => {
+window._cloudSave = async (data) => {
   if(!window.currentShowroom) return;
   try{
     data._lastUpdated = new Date().toISOString();
@@ -269,16 +333,14 @@ window.cloudSave = async (data) => {
   }
 };
 
-window.cloudLoad = async () => {
-  if(!window.currentShowroom) return null;
-  const snap = await getDoc(doc(db,"showrooms", window.currentShowroom, "app","data"));
-  return snap.exists() ? snap.data() : null;
-};
-
 
 document.addEventListener("DOMContentLoaded", () => {
 
-  document.getElementById("loginBtn").addEventListener("click", async () => {
+  const loginBtn = document.getElementById("loginBtn");
+  const signupBtn = document.getElementById("signupBtn");
+
+  if(loginBtn){
+    loginBtn.addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const pass  = document.getElementById("password").value;
 
@@ -299,7 +361,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
- document.getElementById("signupBtn").addEventListener("click", async () => {
+  if(signupBtn){
+    signupBtn.addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const pass  = document.getElementById("password").value;
   const code  = document.getElementById("showroomCode").value.trim();
@@ -365,20 +428,20 @@ await setDoc(doc(db,"showrooms", showroomId),{
   catch(e){
     alert(e.message);
   }
-});
-  
+  });
+ }
+    
 });
 
 window.logout = async function(){
   await auth.signOut();
-  localStorage.clear();
+  localStorage.removeItem("currentUID");
   location.reload();
 };
 
-
 </script>
 
-
+  
 </head>
 
 <body>
@@ -444,26 +507,19 @@ window.logout = async function(){
 <input type="file" id="fileInput" hidden>
 <script>
   
-
-serviceHistory = [];
-bills = [];
-customers = {};
-meta = {};
-let main, fileInput;
-
-window.onload = ()=>{
-  main = document.getElementById("main");
-  fileInput = document.getElementById("fileInput");
+document.addEventListener("DOMContentLoaded", ()=>{
+  window.main = document.getElementById("main");
+  window.fileInput = document.getElementById("fileInput");
+});
+  
+window.cloudSave = function(data){
+  if(typeof window._cloudSave === "function"){
+    window._cloudSave(data);
+  }
 };
 
-
   let currentBill = {};
-  if(!localStorage.billNo)
-    localStorage.billNo = "1";
 /* SPLASH */
-setTimeout(()=>{
-  document.getElementById("splash").style.display="none";
-},2500);
 
 /* THEME */
 if(localStorage.theme==="dark") document.body.classList.add("dark");
@@ -485,7 +541,9 @@ function nav(fn){
 
 /* DATA */
 
-if(!localStorage.invoiceNo) localStorage.invoiceNo="1";
+if(!localStorage.invoiceNo || isNaN(localStorage.invoiceNo)){
+  localStorage.invoiceNo = "1";
+}
 let selectedLabour = 0;
 /* DASHBOARD */
 function dashboard(){
@@ -735,7 +793,6 @@ function searchView(){
 /* INVOICE */
 function invoiceView(){
   let no=localStorage.invoiceNo.padStart(4,"0");
-  localStorage.invoiceNo=+localStorage.invoiceNo+1+"";
   let total=0;
   serviceHistory.slice(0,5).forEach(x=>{
     total+=x.qty*(stock[x.item]?.cost||0);
