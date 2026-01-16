@@ -160,7 +160,14 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import * as fs from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  getDocs,
+  collection
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } 
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 
@@ -175,8 +182,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = fs.getFirestore(app);
-window.fs = fs;
+const db = getFirestore(app);
 window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
 const storage = getStorage(app);
 window.getDoc = getDoc;
@@ -210,8 +216,8 @@ window.applyShowroomBranding = () => {
 };
 
 window.getUserProfile = async (uid) => {
-  const ref = fs.doc(db, "users", uid);
-  const snap = await fs.getDoc(ref);
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
 
   if(!snap.exists()){
     const user = auth.currentUser;
@@ -220,7 +226,7 @@ window.getUserProfile = async (uid) => {
     // 🔧 AUTO-CREATE PROFILE (recovery)
     const showroomId = "SR-" + Date.now();
 
-    await setDoc(fs.doc(db,"showrooms", showroomId),{
+    await setDoc(doc(db,"showrooms", showroomId),{
   ownerUID: uid,
   code: "",
   name: "My Showroom",
@@ -245,13 +251,13 @@ window.getUserProfile = async (uid) => {
 };
 
 window.getShowroomProfile = async (sid) => {
-  const snap = await fs.getDoc(fs.doc(db,"showrooms", sid));
+  const snap = await getDoc(doc(db,"showrooms", sid));
   return snap.exists() ? snap.data() : null;
 };
 
 window.cloudLoad = async () => {
   if(!window.currentShowroom) return null;
-  const snap = await fs.getDoc(fs.doc(db,"showrooms", window.currentShowroom, "app","data"));
+  const snap = await getDoc(doc(db,"showrooms", window.currentShowroom, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
   
@@ -271,8 +277,8 @@ window._cloudSave = async (data) => {
     data._lastUpdated = new Date().toISOString();
     data._by = window.currentUID;
 
-    await fs.setDoc(
-      fs.doc(db,"showrooms",window.currentShowroom,"app","data"),
+    await setDoc(
+      doc(db,"showrooms",window.currentShowroom,"app","data"),
       data,
       { merge:true }
     );
@@ -319,23 +325,23 @@ signupBtn.onclick = async () => {
     const uid = userCred.user.uid;
 
     if(code){
-      const snap = await fs.getDoc(fs.doc(window.db,"showroomCodes", code));
+      const snap = await getDoc(doc(window.db,"showroomCodes", code));
       if(!snap.exists()){
         alert("Invalid Showroom Code");
         await userCred.user.delete();
         return;
       }
 
-     await fs.setDoc(
-  fs.doc(window.db,"users",uid),
+     await setDoc(
+  doc(window.db,"users",uid),
   {
     role: "staff",
     showroomId: snap.data().showroomId
   }
 );
 
-await fs.setDoc(
-  fs.doc(window.db,"showrooms", snap.data().showroomId, "staff", uid),
+await setDoc(
+  doc(window.db,"showrooms", snap.data().showroomId, "staff", uid),
   { email: email }
 );
 
@@ -344,7 +350,7 @@ await fs.setDoc(
       const showroomId = "SR-" + Date.now();
       const showroomCode = Math.floor(100000 + Math.random()*900000).toString();
 
-      await fs.setDoc(fs.doc(window.db,"showrooms", showroomId),{
+      await setDoc(doc(window.db,"showrooms", showroomId),{
         ownerUID: uid,
         code: showroomCode,
         name: name || "My Showroom",
@@ -354,8 +360,8 @@ await fs.setDoc(
         createdAt: new Date().toISOString()
       });
 
-      await fs.setDoc(fs.doc(window.db,"showroomCodes", showroomCode),{ showroomId });
-      await fs.setDoc(fs.doc(window.db,"users",uid),{ role:"owner", showroomId });
+      await setDoc(doc(window.db,"showroomCodes", showroomCode),{ showroomId });
+      await setDoc(doc(window.db,"users",uid),{ role:"owner", showroomId });
 
       alert("Your Showroom Code: " + showroomCode);
     }
@@ -416,9 +422,11 @@ await fs.setDoc(
    const sp = document.getElementById("splash");
 if(sp) sp.style.display = "none";
 
-    window.showroomProfile = await getShowroomProfile(window.currentShowroom) || {};
-    applyShowroomBranding();
+   window.showroomProfile = await getShowroomProfile(window.currentShowroom);
 
+if(window.showroomProfile){
+  applyShowroomBranding();
+}
     const cloudData = await window.cloudLoad();
 
     if(cloudData){
@@ -452,15 +460,6 @@ if(sp) sp.style.display = "none";
     }, 800);
 });
   
-
-window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
-window.getDoc = getDoc;
-window.setDoc = setDoc;
-window.doc = doc;
-window.auth = auth;
-window.db = db;
-window.firebaseLogin = (email, pass) =>
-  signInWithEmailAndPassword(auth, email, pass);
 window.logout = async function(){
   await auth.signOut();
   localStorage.removeItem("currentUID");
@@ -618,6 +617,7 @@ function dashboard(){
 </div>
 `;
   checkBackupReminder();
+  applyShowroomBranding();
 }
 
 /* STOCK */
@@ -1171,7 +1171,7 @@ async function staffManagerView(){
 
   main.innerHTML = `<div class="card"><h3>Staff Accounts</h3>Loading...</div>`;
 
-  const q = await fs.getDocs(fs.collection(db,"showrooms", currentShowroom, "staff"));
+  const q = await getDocs(collection(db,"showrooms", currentShowroom, "staff"));
   let h = `<div class="card"><h3>Staff Accounts</h3></div>`;
 
   q.forEach(docu=>{
@@ -1189,7 +1189,7 @@ async function staffManagerView(){
 async function removeStaff(uid){
   if(!confirm("Remove this staff account permanently?")) return;
 
-  await fs.setDoc(fs.doc(window.db,"users",uid),{
+  await setDoc(doc(window.db,"users",uid),{
     role:"revoked",
     showroomId:""
   });
@@ -1253,7 +1253,7 @@ async function saveShowroomSettings(){
     logoURL = await getDownloadURL(logoRef);
   }
 
-  await setDoc(fs.doc(db,"showrooms",currentShowroom),{
+  await setDoc(doc(db,"showrooms",currentShowroom),{
     name,
     phone,
     address,
