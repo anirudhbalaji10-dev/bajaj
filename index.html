@@ -170,7 +170,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } 
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
-
+window.getDocs = getDocs;
+window.collection = collection;
 const firebaseConfig = {
   apiKey: "AIzaSyDORVDe8uzAbCPWVDKc44YZbMKBTlRO6tU",
   authDomain: "balaji-motors-6fe53.firebaseapp.com",
