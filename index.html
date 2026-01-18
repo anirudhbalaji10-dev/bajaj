@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a2e5c">
 <meta charset="UTF-8">
-<title>Bajaj</title>
+<title>Balaji Motors – Anavatti</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -58,7 +60,7 @@ body.dark{
 }
 
 /* LAYOUT */
-.app{display:flex;height:100vh}
+.app{display:flex;min-height:100vh;}
 
 /* SIDEBAR */
 .sidebar{
@@ -66,6 +68,12 @@ body.dark{
   background:var(--blue);
   color:#fff;
   padding:15px;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+
+  /* ✨ smooth animation */
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
 }
 .sidebar h2{text-align:center;margin-bottom:15px}
 .sidebar button{
@@ -79,6 +87,22 @@ body.dark{
   margin-bottom:5px;
 }
 .sidebar button:hover{background:rgba(255,255,255,.15)}
+.sidebar button.active{
+  background: rgba(255,255,255,0.22);
+  font-weight: bold;
+  position: relative;
+}
+
+.sidebar button.active::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  width:4px;
+  height:100%;
+  background:#fff;
+  border-radius:0 4px 4px 0;
+}
 
 /* MAIN */
 .main{flex:1;padding:20px;overflow:auto}
@@ -117,19 +141,21 @@ body.dark{
     height:auto;
   }
 
-  .sidebar{
-    position:fixed;
-    top:0;
-    left:-260px;
-    width:260px;
-    height:100vh;
-    z-index:1000;
-    transition:0.3s;
-  }
+.sidebar{
+  position:fixed;
+  top:0;
+  left:0;
+  width:260px;
+  height:100vh;
+  z-index:1000;
 
-  .sidebar.show{
-    left:0;
-  }
+  transform: translateX(-100%);
+  box-shadow: 4px 0 12px rgba(0,0,0,0.25);
+}
+
+.sidebar.show{
+  transform: translateX(0);
+}
 
   .main{
     width:100%;
@@ -149,6 +175,31 @@ body::after{
 }
 body.dark::after{
   color: rgba(255,255,255,0.15);
+}
+.sidebar button{
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar button::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:0;
+  height:0;
+  background:rgba(255,255,255,0.35);
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  transition:width 0.4s ease,height 0.4s ease,opacity 0.6s;
+  opacity:0;
+}
+
+.sidebar button:active::after{
+  width:220%;
+  height:220%;
+  opacity:1;
+  transition:0s;
 }
 </style>
   
@@ -520,7 +571,7 @@ window.logout = async function(){
 <!-- SPLASH -->
 <div id="splash">
   <img src="https://i.ibb.co/bMRdkgPb/Screenshot-20251219-121943.jpg">
-  <h1 id="showroomTitle">Bajaj</h1>
+  <h1 id="showroomTitle">Bajaj Showroom</h1>
   <small>Bajaj Authorised Service Center</small>
 </div>
 
@@ -599,8 +650,32 @@ function toggleSidebar(){
   document.querySelector(".sidebar").classList.toggle("show");
 }
 function nav(fn){
+  // remove active from all
+  document.querySelectorAll(".sidebar button")
+    .forEach(b => b.classList.remove("active"));
+
+  // add active to clicked button
+  event.currentTarget.classList.add("active");
+
   fn();
-  if(innerWidth<=768) document.querySelector(".sidebar").classList.remove("show");
+
+  if(innerWidth<=768){
+    document.querySelector(".sidebar").classList.remove("show");
+  }
+}
+function nav(fn){
+  // remove active from all
+  document.querySelectorAll(".sidebar button")
+    .forEach(b => b.classList.remove("active"));
+
+  // add active to clicked button
+  event.currentTarget.classList.add("active");
+
+  fn();
+
+  if(innerWidth<=768){
+    document.querySelector(".sidebar").classList.remove("show");
+  }
 }
 
 /* SECURITY */
