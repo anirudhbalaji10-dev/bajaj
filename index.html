@@ -192,7 +192,6 @@ window.doc = doc;
 window.auth = auth;
 window.db = db;
 window.currentUID = "";
-window.role = "staff";
 window.currentShowroom = "";
 window.stock = {};
 window.serviceHistory = [];
@@ -220,35 +219,21 @@ window.getUserProfile = async (uid) => {
   const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
 
-  if(!snap.exists()){
-    const user = auth.currentUser;
-    if(!user) throw "Auth lost";
-
-    // 🔧 AUTO-CREATE PROFILE (recovery)
-    const showroomId = "SR-" + Date.now();
-
-    await setDoc(doc(db,"showrooms", showroomId),{
-  ownerUID: uid,
-  code: "",
-  name: "My Showroom",
-  phone: "",
-  address: "",
-  logo: "",
-  createdAt: new Date().toISOString()
-});
-
-    await setDoc(ref,{
-      role: "owner",
-      showroomId
-    });
-
-    return {
-      role: "owner",
-      showroomId
-    };
+  if (!snap.exists()) {
+    console.error("USER DOC NOT FOUND FOR UID:", uid);
+    throw new Error("User profile not found");
   }
 
-  return snap.data();
+  const data = snap.data();
+
+  // ❌ Do NOT fix or create anything here
+  // Login = READ ONLY
+
+  if (!data.role || !data.showroomId) {
+    throw new Error("USER_PROFILE_INCOMPLETE");
+  }
+
+  return data;
 };
 
 window.getShowroomProfile = async (sid) => {
@@ -261,8 +246,6 @@ window.cloudLoad = async () => {
   const snap = await getDoc(doc(db,"showrooms", window.currentShowroom, "app","data"));
   return snap.exists() ? snap.data() : null;
 };
-  
-
 
       
 window.db = db;
@@ -316,66 +299,90 @@ signupBtn.onclick = async () => {
   const code  = document.getElementById("showroomCode").value.trim();
   const name  = document.getElementById("showroomName").value.trim();
 
-  if(!email || !pass){
+  if (!email || !pass) {
     alert("Enter email and password");
     return;
   }
 
   try {
-    const userCred = await window.createUserWithEmailAndPassword(window.auth, email, pass);
+    const userCred = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = userCred.user.uid;
 
-    if(code){
-      const snap = await getDoc(doc(window.db,"showroomCodes", code));
-      if(!snap.exists()){
+    let role = "";
+    let showroomId = "";
+
+    // 👨‍🔧 STAFF SIGNUP
+    if (code) {
+      const snap = await getDoc(doc(db, "showroomCodes", code));
+      if (!snap.exists()) {
         alert("Invalid Showroom Code");
         await userCred.user.delete();
         return;
       }
 
-     await setDoc(
-  doc(window.db,"users",uid),
-  {
-    role: "staff",
-    showroomId: snap.data().showroomId
-  }
-);
+      role = "staff";
+      showroomId = snap.data().showroomId;
 
-await setDoc(
-  doc(window.db,"showrooms", snap.data().showroomId, "staff", uid),
-  { email: email }
-);
+      await setDoc(
+        doc(db, "showrooms", showroomId, "staff", uid),
+        { email }
+      );
+    }
 
-      alert("Staff account created. Please login.");
-    } else {
-      const showroomId = "SR-" + Date.now();
-      const showroomCode = Math.floor(100000 + Math.random()*900000).toString();
+    // 👨‍💼 OWNER SIGNUP
+    else {
+      role = "owner";
+      showroomId = "SR-" + Date.now();
 
-      await setDoc(doc(window.db,"showrooms", showroomId),{
+      const showroomCode =
+        Math.floor(100000 + Math.random() * 900000).toString();
+
+      await setDoc(doc(db, "showrooms", showroomId), {
         ownerUID: uid,
         code: showroomCode,
         name: name || "My Showroom",
-        phone:"",
-        address:"",
-        logo:"",
         createdAt: new Date().toISOString()
       });
 
-      await setDoc(doc(window.db,"showroomCodes", showroomCode),{ showroomId });
-      await setDoc(doc(window.db,"users",uid),{ role:"owner", showroomId });
+      await setDoc(doc(db, "showroomCodes", showroomCode), {
+        showroomId
+      });
 
       alert("Your Showroom Code: " + showroomCode);
     }
 
-    await window.auth.signOut();
+    // 🔥 ALWAYS CREATE USER DOC (MANDATORY)
+    await setDoc(doc(db, "users", uid), {
+      role,
+      showroomId
+    });
+
+    // ✅ logout only AFTER firestore write
+    await auth.signOut();
     location.reload();
 
-  } catch(e){
+  } catch (e) {
     alert(e.message);
   }
 };
 
   // 🔓 SAFETY SPLASH RELEASE
+function applyRoleUI(role){
+  const ownerOnly = [
+    "exportBtn",
+    "importBtn",
+    "revenueBtn",
+    "changePinBtn",
+    "staffBtn",
+    "settingsBtn"
+  ];
+
+  ownerOnly.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.style.display = role === "owner" ? "block" : "none";
+  });
+}
 
   onAuthStateChanged(auth, async (user) => {
 
@@ -402,6 +409,9 @@ await setDoc(
     let profile;
     try{
       profile = await getUserProfile(user.uid);
+      window.role = profile.role;   // ✅ REQUIRED
+      alert("ROLE FROM FIRESTORE = " + window.role);
+      applyRoleUI(window.role);
     }catch(e){
       alert("User profile missing. Please login again.");
       await auth.signOut();
@@ -414,16 +424,21 @@ await setDoc(
       return;
     }
 
-    window.role = profile.role;
     window.currentShowroom = profile.showroomId;
 
     loginBox.style.display = "none";
     appBox.style.display = "flex";
-
+    // 🔐 Role-based UI control (FINAL FIX)
+// 🔐 Role-based UI control (FINAL – OWNER vs STAFF)
    const sp = document.getElementById("splash");
 if(sp) sp.style.display = "none";
 
-   window.showroomProfile = await getShowroomProfile(window.currentShowroom);
+  if(window.currentShowroom){
+  window.showroomProfile = await getShowroomProfile(window.currentShowroom);
+  if(window.showroomProfile){
+    applyShowroomBranding();
+  }
+}
 
 if(window.showroomProfile){
   applyShowroomBranding();
@@ -512,22 +527,18 @@ window.logout = async function(){
     <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
     <button onclick="nav(searchView)">🔍 Search</button>
     <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
-    <button onclick="exportData()"
-      class="adv">📤 Export</button>
-    <button onclick="importData()"
-      class="adv">📥 Import</button>
+   <button id="exportBtn" style="display:none" onclick="exportData()" class="adv">📤 Export</button>
+<button id="importBtn" style="display:none" onclick="importData()" class="adv">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
     <button onclick="nav(serviceHistoryView)">📜 serviceHistory</button>
     <button onclick="nav(lowStockView)">⚠️ Low Stock</button>
     <button onclick="logout()">🚪 Logout</button>
-    <button onclick="nav(revenueView)"
-      class="adv">💰 Revenue</button>
+   <button id="revenueBtn" style="display:none" onclick="nav(revenueView)" class="adv">💰 Revenue</button>
     <button onclick="nav(savedBillsView)"
       class="adv">🧾 Saved Bills</button>
-    <button id="changePinBtn" onclick="changePin()"
-      class="adv">🔐 Change PIN</button>
-    <button onclick="nav(staffManagerView)" class="adv">👥 Manage Staff</button>
-    <button onclick="nav(showroomSettingsView)" class="adv">🏢 Showroom Settings</button>
+    <button id="changePinBtn" style="display:none" onclick="changePin()" class="adv">🔐 Change PIN</button>
+<button id="staffBtn" style="display:none" onclick="nav(staffManagerView)" class="adv">👥 Manage Staff</button>
+<button id="settingsBtn" style="display:none" onclick="nav(showroomSettingsView)" class="adv">🏢 Showroom Settings</button>
   </div>
   <div class="main" id="main"></div>
 
@@ -629,7 +640,7 @@ function stockView(){
       onkeyup="filterStock()" style="width:100%;padding:10px;font-size:16px;">
   </div>
 `;
-  if(role==="owner") h+=`<button onclick="addStock()">➕ Add Stock</button>`;
+  if(window.role==="owner") h+=`<button onclick="addStock()">➕ Add Stock</button>`;
   h+=`</div>`;
   for(let i in stock){
     let low=stock[i].qty<=5?'<span class="low"> LOW</span>':'';
@@ -638,10 +649,10 @@ function stockView(){
       <b>${i}</b><br>
       Qty: ${stock[i].qty}${low}
       <div class="btnRow">
-        <button class="reduce ${role==='staff'?'big-btn':''}" onclick="useStock('${i}')">
+        <button class="reduce ${window.role==='staff'?'big-btn':''}" onclick="useStock('${i}')">
   Reduce
 </button>
-        ${role==="owner"?`
+        ${window.role==="owner"?`
         <button class="edit" onclick="editStock('${i}')">Edit</button>
         <button class="delete" onclick="delStock('${i}')">Delete</button>
         `:""}
@@ -882,7 +893,7 @@ function importData(){
 
 /* PIN CHANGE */
 function changePin(){
-  if(role !== "owner"){
+  if(window.role !== "owner"){
     alert("Access denied");
     return;
   }
@@ -949,8 +960,8 @@ function reprintBill(index){
 
   main.innerHTML = `
     <div class="card" id="billArea">
-     <img src="${window.showroomProfile.logo || ''}" 
-     style="max-width:90px;${window.showroomProfile.logo?'':'display:none'}"><br>
+     <img src="${window.showroomProfile?.logo || ''}" 
+     style="max-width:90px;${window.showroomProfile?.logo?'':'display:none'}"><br>
      <h2>${window.showroomProfile.name}</h2>
       <p><b>Bill No:</b> ${b.billNo}</p>
       <p><b>Date:</b> ${new Date(b.date).toLocaleString()}</p>
@@ -1165,24 +1176,36 @@ function filterStock(){
 }
 
 async function staffManagerView(){
-  if(role !== "owner"){
+  if(window.role !== "owner"){
     alert("Access denied");
+    return;
+  }
+
+  if(!currentShowroom){
+    alert("Showroom not ready. Please reload.");
     return;
   }
 
   main.innerHTML = `<div class="card"><h3>Staff Accounts</h3>Loading...</div>`;
 
-  const q = await getDocs(collection(db,"showrooms", currentShowroom, "staff"));
+  const q = await getDocs(
+    collection(db, "showrooms", currentShowroom, "staff")
+  );
+
   let h = `<div class="card"><h3>Staff Accounts</h3></div>`;
 
+  if(q.empty){
+    h += `<div class="card">No staff accounts found</div>`;
+  }
+
   q.forEach(docu=>{
-  h += `
-    <div class="card">
-      <b>Email:</b> ${docu.data().email}<br>
-      <button onclick="removeStaff('${docu.id}')">❌ Remove Staff</button>
-    </div>
-  `;
-});
+    h += `
+      <div class="card">
+        <b>Email:</b> ${docu.data().email}<br>
+        <button onclick="removeStaff('${docu.id}')">❌ Remove Staff</button>
+      </div>
+    `;
+  });
 
   main.innerHTML = h;
 }
@@ -1200,7 +1223,7 @@ async function removeStaff(uid){
 }
 
 function showroomSettingsView(){
-  if(role !== "owner"){
+  if(window.role !== "owner"){
     alert("Access denied");
     return;
   }
@@ -1246,7 +1269,7 @@ async function saveShowroomSettings(){
     return;
   }
 
-  let logoURL = window.showroomProfile.logo || "";
+  let logoURL = window.showroomProfile?.logo || "";
 
   if(file){
     const logoRef = ref(storage, "showroom-logos/" + currentShowroom + ".png");
