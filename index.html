@@ -199,6 +199,9 @@ window.serviceHistory = [];
 window.bills = [];
 window.customers = {};
 window.meta = {};
+function LS(key){
+  return `BM_${window.currentShowroom}_${key}`;
+}
 window.applyShowroomBranding = () => {
   const name = window.showroomProfile?.name || "My Showroom";
 
@@ -453,25 +456,25 @@ if(window.showroomProfile){
 }
     const cloudData = await window.cloudLoad();
 
-    if(cloudData){
-      stock = cloudData.stock || {};
-      serviceHistory = cloudData.serviceHistory || [];
-      bills = cloudData.bills || [];
-      customers = cloudData.customers || {};
-      meta = cloudData.meta || {};
-    } else {
-      stock = JSON.parse(localStorage.stock || "{}");
-      serviceHistory = JSON.parse(localStorage.serviceHistory || "[]");
-      bills = JSON.parse(localStorage.bills || "[]");
-      customers = JSON.parse(localStorage.customers || "{}");
-      meta = JSON.parse(localStorage.meta || "{}");
-    }
+    if (cloudData) {
+  stock = cloudData.stock ?? {};
+  serviceHistory = cloudData.serviceHistory ?? [];
+  bills = cloudData.bills ?? [];
+  customers = cloudData.customers ?? {};
+  meta = cloudData.meta ?? {};
+} else {
+  stock = JSON.parse(localStorage.getItem(LS("stock")) || "{}") || {};
+  serviceHistory = JSON.parse(localStorage.getItem(LS("serviceHistory")) || "[]") || [];
+  bills = JSON.parse(localStorage.getItem(LS("bills")) || "[]") || [];
+  customers = JSON.parse(localStorage.getItem(LS("customers")) || "{}") || {};
+  meta = JSON.parse(localStorage.getItem(LS("meta")) || "{}") || {};
+}
 
-    localStorage.stock = JSON.stringify(stock);
-    localStorage.serviceHistory = JSON.stringify(serviceHistory);
-    localStorage.bills = JSON.stringify(bills);
-    localStorage.customers = JSON.stringify(customers);
-    localStorage.meta = JSON.stringify(meta);
+    localStorage.setItem(LS("stock"), JSON.stringify(stock));
+    localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
+    localStorage.setItem(LS("bills"), JSON.stringify(bills));
+    localStorage.setItem(LS("customers"), JSON.stringify(customers));
+    localStorage.setItem(LS("meta"), JSON.stringify(meta));
 
     if(window.main){
       dashboard();
@@ -610,6 +613,8 @@ if(!localStorage.invoiceNo || isNaN(localStorage.invoiceNo)){
 let selectedLabour = 0;
 /* DASHBOARD */
 function dashboard(){
+ if (!Array.isArray(serviceHistory)) serviceHistory = [];
+
   let d=new Date(),m=d.getMonth(),y=d.getFullYear();
   let list=serviceHistory.filter(x=>{
     let t=new Date(x.time);
@@ -1161,9 +1166,13 @@ function setCustomLabour(){
   document.getElementById("labourValue").innerText = val;
 }
 function checkBackupReminder(){
-  if(!meta.lastBackup) return;
+  if (!meta || typeof meta !== "object") meta = {};
+
+  if (!meta.lastBackup) return;
 
   let last = new Date(meta.lastBackup);
+  if (isNaN(last)) return;
+
   let now = new Date();
 
   let diffDays = Math.floor(
