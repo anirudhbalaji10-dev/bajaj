@@ -185,6 +185,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+window.isSigningUp = false;
 const storage = getStorage(app);
 window.getDoc = getDoc;
 window.setDoc = setDoc;
@@ -305,6 +306,7 @@ signupBtn.onclick = async () => {
   }
 
   try {
+    window.isSigningUp = true;
     const userCred = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = userCred.user.uid;
 
@@ -329,6 +331,7 @@ signupBtn.onclick = async () => {
       );
     }
 
+    
     // 👨‍💼 OWNER SIGNUP
     else {
       role = "owner";
@@ -357,10 +360,11 @@ signupBtn.onclick = async () => {
       showroomId
     });
 
-    // ✅ logout only AFTER firestore write
+    await new Promise(resolve => setTimeout(resolve, 500));
+    window.isSigningUp = false;
     await auth.signOut();
     location.reload();
-
+    
   } catch (e) {
     alert(e.message);
   }
@@ -385,6 +389,10 @@ function applyRoleUI(role){
 }
 
   onAuthStateChanged(auth, async (user) => {
+    if (window.isSigningUp) {
+  console.log("Signup in progress, delaying login...");
+  return;
+}
 
     const loginBox = document.getElementById("loginBox");
     const appBox   = document.getElementById("app");
