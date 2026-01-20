@@ -223,6 +223,12 @@ body.dark::after{
 #toast.success{background:#2e7d32}
 #toast.error{background:#c62828}
 #toast.info{background:#1565c0}
+@keyframes pulse{
+  0%{opacity:.4}
+  50%{opacity:1}
+  100%{opacity:.4}
+}
+
 
 </style>
   
@@ -307,9 +313,10 @@ window.can = function(action){
   return window.PERMISSIONS?.[window.role]?.[action] === true;
 };
 
-function LS(key){
+window.LS = function(key){
   return `BM_${window.currentShowroom}_${key}`;
-}
+};
+
 window.applyShowroomBranding = () => {
   const name = window.showroomProfile?.name || "My Showroom";
 
@@ -706,20 +713,33 @@ function toggleTheme(){
 function toggleSidebar(){
   document.querySelector(".sidebar").classList.toggle("show");
 }
-function nav(btn,fn){
-  // remove active from all
+// 🔄 PAGE LOADING SKELETON
+function showPageLoading(){
+  if(!window.main) return;
+
+  main.innerHTML = `
+    <div class="card">
+      <div style="height:14px;width:40%;background:#e0e0e0;border-radius:6px;margin-bottom:10px;animation:pulse 1.2s infinite"></div>
+      <div style="height:12px;width:80%;background:#e0e0e0;border-radius:6px;margin-bottom:6px;animation:pulse 1.2s infinite"></div>
+      <div style="height:12px;width:70%;background:#e0e0e0;border-radius:6px;animation:pulse 1.2s infinite"></div>
+    </div>
+  `;
+}
+
+function nav(btn, fn){
   document.querySelectorAll(".sidebar button")
     .forEach(b => b.classList.remove("active"));
 
-  // add active to clicked button
   if(btn) btn.classList.add("active");
 
-  fn();
+  showPageLoading();   // 👈 ADD THIS
+  setTimeout(fn, 150); // 👈 smooth transition
 
-  if(innerWidth<=768){
+  if(innerWidth <= 768){
     document.querySelector(".sidebar").classList.remove("show");
   }
 }
+
 /* SECURITY */
 function toast(msg, type="info"){
   const t = document.getElementById("toast");
@@ -824,22 +844,28 @@ function editStock(i){
 async function delStock(item){
   if(!confirm("Delete this spare permanently?")) return;
 
-  // 1️⃣ remove locally
+  toast("Deleting spare…","info");
+
+  // remove locally
   delete stock[item];
   stockView();
 
-  // 2️⃣ remove from Firestore (REAL DELETE)
-  await setDoc(
-    doc(db,"showrooms",currentShowroom,"app","data"),
-    {
-      [`stock.${item}`]: deleteField()
-    },
-    { merge:true }
-  );
+  try{
+    await setDoc(
+      doc(db,"showrooms",currentShowroom,"app","data"),
+      { [`stock.${item}`]: deleteField() },
+      { merge:true }
+    );
 
-  // 3️⃣ update localStorage
-  localStorage.setItem(LS("stock"), JSON.stringify(stock));
+    localStorage.setItem(LS("stock"), JSON.stringify(stock));
+    toast("Spare deleted","success");
+
+  }catch(e){
+    toast("Delete failed","error");
+    console.error(e);
+  }
 }
+
 function useStock(i){
   let q = +prompt("Quantity used:");
   let phone = prompt("Phone (10 digits):");
@@ -1375,7 +1401,8 @@ async function staffManagerView(){
     return;
   }
 
-  main.innerHTML = `<div class="card"><h3>Staff Accounts</h3>Loading...</div>`;
+ showPageLoading();           // 👈 ADD
+  await new Promise(r=>setTimeout(r,200));
 
   const q = await getDocs(
     collection(db, "showrooms", currentShowroom, "staff")
