@@ -683,8 +683,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
         let d=JSON.parse(ev.target.result);
         stock=d.stock||{};
         serviceHistory=d.serviceHistory||[];
-        localStorage.stock=JSON.stringify(stock);
-        localStorage.serviceHistory=JSON.stringify(serviceHistory);
+        localStorage.setItem(LS("stock"), JSON.stringify(stock));
+       localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
         dashboard();
         cloudSave({ stock, serviceHistory, bills, customers, meta });
       };
@@ -823,7 +823,7 @@ function stockView(){
   }
   if(!Object.keys(stock).length) h+=`<div class="card">No stock</div>`;
   main.innerHTML=h;
-  localStorage.stock=JSON.stringify(stock);
+  localStorage.setItem(LS("stock"), JSON.stringify(stock));
 }
 
 
@@ -848,16 +848,16 @@ async function delStock(item){
 
   // remove locally
   delete stock[item];
+  localStorage.setItem(LS("stock"), JSON.stringify(stock));
   stockView();
 
   try{
     await setDoc(
       doc(db,"showrooms",currentShowroom,"app","data"),
-      { [`stock.${item}`]: deleteField() },
+      { stock },
       { merge:true }
     );
-
-    localStorage.setItem(LS("stock"), JSON.stringify(stock));
+    
     toast("Spare deleted","success");
 
   }catch(e){
@@ -886,7 +886,7 @@ if(!customers[phone]){
   customers[phone].vehicle = vehicle; // update latest vehicle
 }
 
-localStorage.customers = JSON.stringify(customers);
+localStorage.setItem(LS("customers"), JSON.stringify(customers));
 
   if(
     !cust || 
@@ -913,8 +913,8 @@ localStorage.customers = JSON.stringify(customers);
     time
   });
 
-  localStorage.serviceHistory = JSON.stringify(serviceHistory);
-  localStorage.stock = JSON.stringify(stock);
+  localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
+  localStorage.setItem(LS("stock"), JSON.stringify(stock));
   cloudSave({ stock, serviceHistory, bills, customers, meta });
 
   let msg =
@@ -1077,7 +1077,7 @@ function exportData(){
   // existing export code
 
   meta.lastBackup = new Date().toISOString();
-localStorage.meta = JSON.stringify(meta);
+localStorage.setItem(LS("meta"), JSON.stringify(meta));
   let b=new Blob([JSON.stringify({stock,serviceHistory},null,2)],{type:"application/json"});
   let a=document.createElement("a");
   a.href=URL.createObjectURL(b);
@@ -1320,7 +1320,7 @@ function printBill(){
     total: currentBill.total
   });
 
-  localStorage.bills = JSON.stringify(bills);
+ localStorage.setItem(LS("bills"), JSON.stringify(bills));
   cloudSave({ stock, serviceHistory, bills, customers, meta });
 
   window.print();
