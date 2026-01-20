@@ -846,23 +846,28 @@ async function delStock(item){
 
   toast("Deleting spare…","info");
 
-  // remove locally
+  // 1️⃣ Delete locally
   delete stock[item];
   localStorage.setItem(LS("stock"), JSON.stringify(stock));
   stockView();
 
   try{
+    // 2️⃣ DELETE FIELD FROM FIRESTORE (THIS IS THE KEY)
     await setDoc(
       doc(db,"showrooms",currentShowroom,"app","data"),
-      { stock },
+      {
+        stock: {
+          [item]: deleteField()
+        }
+      },
       { merge:true }
     );
-    
-    toast("Spare deleted","success");
+
+    toast("Spare deleted permanently","success");
 
   }catch(e){
-    toast("Delete failed","error");
     console.error(e);
+    toast("Delete failed","error");
   }
 }
 
