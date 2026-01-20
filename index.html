@@ -244,6 +244,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } 
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
+import { deleteField } 
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+window.deleteField = deleteField;
 window.getDocs = getDocs;
 window.collection = collection;
 const firebaseConfig = {
@@ -638,23 +641,23 @@ window.logout = async function(){
 
   <div class="sidebar">
     <h2 id="sidebarShowroom">Loading...</h2>
-    <button onclick="nav(dashboard)">🏠 Dashboard</button>
-    <button onclick="nav(stockView)">📦 Stock</button>
-    <button onclick="nav(monthlyCustomers)">📅 Monthly Customers</button>
-    <button onclick="nav(searchView)">🔍 Search</button>
-    <button onclick="nav(generateTodayBill)">🧾 Invoice / Bill</button>
+    <button onclick="nav(this,dashboard)">🏠 Dashboard</button>
+    <button onclick="nav(this,stockView)">📦 Stock</button>
+    <button onclick="nav(this,monthlyCustomers)">📅 Monthly Customers</button>
+    <button onclick="nav(this,searchView)">🔍 Search</button>
+    <button onclick="nav(this,generateTodayBill)">🧾 Invoice / Bill</button>
    <button id="exportBtn" style="display:none" onclick="exportData()" class="adv">📤 Export</button>
 <button id="importBtn" style="display:none" onclick="importData()" class="adv">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
-    <button onclick="nav(serviceHistoryView)">📜 serviceHistory</button>
-    <button onclick="nav(lowStockView)">⚠️ Low Stock</button>
+    <button onclick="nav(this,serviceHistoryView)">📜 serviceHistory</button>
+    <button onclick="nav(this,lowStockView)">⚠️ Low Stock</button>
     <button onclick="logout()">🚪 Logout</button>
-   <button id="revenueBtn" style="display:none" onclick="nav(revenueView)" class="adv">💰 Revenue</button>
-    <button onclick="nav(savedBillsView)"
+   <button id="revenueBtn" style="display:none" onclick="nav(this,revenueView)" class="adv">💰 Revenue</button>
+    <button onclick="nav(this,savedBillsView)"
       class="adv">🧾 Saved Bills</button>
     <button id="changePinBtn" style="display:none" onclick="changePin()" class="adv">🔐 Change PIN</button>
-<button id="staffBtn" style="display:none" onclick="nav(staffManagerView)" class="adv">👥 Manage Staff</button>
-<button id="settingsBtn" style="display:none" onclick="nav(showroomSettingsView)" class="adv">🏢 Showroom Settings</button>
+<button id="staffBtn" style="display:none" onclick="nav(this,staffManagerView)" class="adv">👥 Manage Staff</button>
+<button id="settingsBtn" style="display:none" onclick="nav(this,showroomSettingsView)" class="adv">🏢 Showroom Settings</button>
   </div>
   <div class="main" id="main"></div>
 
@@ -703,13 +706,13 @@ function toggleTheme(){
 function toggleSidebar(){
   document.querySelector(".sidebar").classList.toggle("show");
 }
-function nav(fn){
+function nav(btn,fn){
   // remove active from all
   document.querySelectorAll(".sidebar button")
     .forEach(b => b.classList.remove("active"));
 
   // add active to clicked button
-  event.currentTarget.classList.add("active");
+  if(btn) btn.classList.add("active");
 
   fn();
 
@@ -717,22 +720,19 @@ function nav(fn){
     document.querySelector(".sidebar").classList.remove("show");
   }
 }
-function nav(fn){
-  // remove active from all
-  document.querySelectorAll(".sidebar button")
-    .forEach(b => b.classList.remove("active"));
-
-  // add active to clicked button
-  event.currentTarget.classList.add("active");
-
-  fn();
-
-  if(innerWidth<=768){
-    document.querySelector(".sidebar").classList.remove("show");
-  }
-}
-
 /* SECURITY */
+function toast(msg, type="info"){
+  const t = document.getElementById("toast");
+  if(!t) return;
+
+  t.className = "";
+  t.textContent = msg;
+  t.classList.add("show", type);
+
+  setTimeout(() => {
+    t.classList.remove("show");
+  }, 2500);
+}
 
 /* DATA */
 
@@ -821,8 +821,24 @@ function editStock(i){
   stockView();
   cloudSave({ stock, serviceHistory, bills, customers, meta });
 }
-function delStock(i){
-  if(confirm("Delete?")){delete stock[i];stockView();cloudSave({ stock, serviceHistory, bills, customers, meta });}
+async function delStock(item){
+  if(!confirm("Delete this spare permanently?")) return;
+
+  // 1️⃣ remove locally
+  delete stock[item];
+  stockView();
+
+  // 2️⃣ remove from Firestore (REAL DELETE)
+  await setDoc(
+    doc(db,"showrooms",currentShowroom,"app","data"),
+    {
+      [`stock.${item}`]: deleteField()
+    },
+    { merge:true }
+  );
+
+  // 3️⃣ update localStorage
+  localStorage.setItem(LS("stock"), JSON.stringify(stock));
 }
 function useStock(i){
   let q = +prompt("Quantity used:");
