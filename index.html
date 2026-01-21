@@ -228,6 +228,20 @@ body.dark::after{
   50%{opacity:1}
   100%{opacity:.4}
 }
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #billArea, #billArea * {
+    visibility: visible;
+  }
+  #billArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
 
 
 </style>
@@ -240,6 +254,8 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { onSnapshot } 
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import {
   getFirestore,
   doc,
@@ -280,6 +296,8 @@ window.currentShowroom = "";
 window.stock = {};
 // 🔐 ROLE PERMISSIONS MATRIX
 window.serviceHistory = [];
+let activeServices = {};
+window.addingItemsForBike = null;
 window.bills = [];
 window.customers = {};
 window.meta = {};
@@ -364,6 +382,39 @@ window.cloudLoad = async () => {
   if(!window.currentShowroom) return null;
   const snap = await getDoc(doc(db,"showrooms", window.currentShowroom, "app","data"));
   return snap.exists() ? snap.data() : null;
+};
+
+window.startRealtimeSync = function(){
+  if(!window.currentShowroom) return;
+
+  const ref = doc(db,"showrooms",currentShowroom,"app","data");
+
+ onSnapshot(ref, snap=>{
+  if(!snap.exists()) return;
+
+  const d = snap.data();
+
+  // ✅ SAFE REAL-TIME SYNC (NO activeServices here)
+  if(d.stock) stock = d.stock;
+  if(d.serviceHistory) serviceHistory = d.serviceHistory;
+  if(d.bills) bills = d.bills;
+  if(d.activeServices && typeof d.activeServices === "object"){
+  activeServices = d.activeServices;
+}
+
+if(d.customers) customers = d.customers;
+if(d.meta) meta = d.meta;
+
+  localStorage.setItem(LS("stock"), JSON.stringify(stock));
+  localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
+  localStorage.setItem(LS("bills"), JSON.stringify(bills));
+
+  // 🔄 refresh UI WITHOUT killing active services
+  if(document.getElementById("activeServices")){
+    renderActiveServices();
+  }
+});
+
 };
 
       
@@ -570,6 +621,7 @@ if(window.showroomProfile){
   applyShowroomBranding();
 }
     const cloudData = await window.cloudLoad();
+startRealtimeSync();
 
     if (cloudData) {
   stock = cloudData.stock ?? {};
@@ -577,6 +629,7 @@ if(window.showroomProfile){
   bills = cloudData.bills ?? [];
   customers = cloudData.customers ?? {};
   meta = cloudData.meta ?? {};
+
 } else {
   stock = JSON.parse(localStorage.getItem(LS("stock")) || "{}") || {};
   serviceHistory = JSON.parse(localStorage.getItem(LS("serviceHistory")) || "[]") || [];
@@ -652,7 +705,6 @@ window.logout = async function(){
     <button onclick="nav(this,stockView)">📦 Stock</button>
     <button onclick="nav(this,monthlyCustomers)">📅 Monthly Customers</button>
     <button onclick="nav(this,searchView)">🔍 Search</button>
-    <button onclick="nav(this,generateTodayBill)">🧾 Invoice / Bill</button>
    <button id="exportBtn" style="display:none" onclick="exportData()" class="adv">📤 Export</button>
 <button id="importBtn" style="display:none" onclick="importData()" class="adv">📥 Import</button>
     <button onclick="toggleTheme()">🌙 Theme</button>
@@ -686,12 +738,47 @@ document.addEventListener("DOMContentLoaded", ()=>{
         localStorage.setItem(LS("stock"), JSON.stringify(stock));
        localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
         dashboard();
-        cloudSave({ stock, serviceHistory, bills, customers, meta });
+        cloudSave({ stock, serviceHistory, bills, customers, meta, activeServices: cleanActiveServices() });
       };
       r.readAsText(e.target.files[0]);
     };
   }
 });
+
+function cleanActiveServices(){
+  const clean = {};
+
+  Object.keys(activeServices).forEach(bike => {
+    const s = activeServices[bike];
+
+    clean[bike] = {
+      cust: s.cust,
+      phone: s.phone,
+      parts: s.parts.map(p => ({
+        item: p.item,
+        qty: p.qty,
+        price: p.price
+      })),
+      labour: Number(s.labour || 0),
+      waterWash: Number(s.waterWash || 0),
+      status: s.status,
+      startedAt: s.startedAt
+    };
+  });
+
+  return clean;
+}
+
+function syncActiveServices(){
+  cloudSave({
+    stock,
+    serviceHistory,
+    bills,
+    customers,
+    meta,
+    activeServices: cleanActiveServices()
+  });
+}
   
 window.cloudSave = function(data){
   if(typeof window._cloudSave === "function"){
@@ -700,6 +787,7 @@ window.cloudSave = function(data){
 };
 
   let currentBill = {};
+  
 /* SPLASH */
 
 /* THEME */
@@ -797,35 +885,54 @@ function dashboard(){
 /* STOCK */
 function stockView(){
   let h = `
-  <div class="card">
-    <input type="text" id="stockSearch" placeholder="Search spare..." 
-      onkeyup="filterStock()" style="width:100%;padding:10px;font-size:16px;">
-  </div>
-`;
-  if(window.role==="owner") h+=`<button onclick="addStock()">➕ Add Stock</button>`;
-  h+=`</div>`;
-  for(let i in stock){
-    let low=stock[i].qty<=5?'<span class="low"> LOW</span>':'';
-    h+=`
-    <div class="card stockItem" data-name="${i.toLowerCase()}">
-      <b>${i}</b><br>
-      Qty: ${stock[i].qty}${low}
-      <div class="btnRow">
-        <button class="reduce ${window.role==='staff'?'big-btn':''}" onclick="useStock('${i}')">
-  Reduce
-</button>
-        ${window.role==="owner"?`
-        <button class="edit" onclick="editStock('${i}')">Edit</button>
-        <button class="delete" onclick="delStock('${i}')">Delete</button>
-        `:""}
-      </div>
-    </div>`;
+    <div class="card">
+      <button class="big-btn"
+        style="background:#4caf50;color:white;border:none"
+        onclick="startService()">
+        ➕ Start New Service
+      </button>
+    </div>
+
+    <div id="activeServices"></div>
+
+    <div class="card">
+      <input type="text" id="stockSearch"
+        placeholder="Search spare..."
+        onkeyup="filterStock()"
+        style="width:100%;padding:10px;font-size:16px;">
+    </div>
+  `;
+
+  if(window.role === "owner"){
+    h += `<div class="card"><button onclick="addStock()">➕ Add Stock</button></div>`;
   }
-  if(!Object.keys(stock).length) h+=`<div class="card">No stock</div>`;
-  main.innerHTML=h;
+
+  for(let i in stock){
+    let low = stock[i].qty <= 5 ? '<span class="low"> LOW</span>' : '';
+    h += `
+      <div class="card stockItem" data-name="${i.toLowerCase()}">
+        <b>${i}</b><br>
+        Qty: ${stock[i].qty}${low}
+        <div class="btnRow">
+          ${
+            window.role==="owner"
+              ? `<button class="edit" onclick="editStock('${i}')">Edit</button>
+                 <button class="delete" onclick="delStock('${i}')">Delete</button>`
+              : ""
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  if(!Object.keys(stock).length){
+    h += `<div class="card">No stock</div>`;
+  }
+
+  main.innerHTML = h;
+  renderActiveServices(); // ✅ IMPORTANT
   localStorage.setItem(LS("stock"), JSON.stringify(stock));
 }
-
 
 function addStock(){
   let n=prompt("Spare name"),q=+prompt("Qty"),c=+prompt("Cost");
@@ -870,7 +977,7 @@ async function delStock(item){
     toast("Delete failed","error");
   }
 }
-
+/*
 function useStock(i){
   let q = +prompt("Quantity used:");
   let phone = prompt("Phone (10 digits):");
@@ -909,89 +1016,489 @@ localStorage.setItem(LS("customers"), JSON.stringify(customers));
   let time = new Date().toLocaleString();
 
   serviceHistory.unshift({
-    cust,
-    phone,
-    vehicle,
-    item: i,
-    qty: q,
-    staff,
-    time
-  });
+  id: "TMP-" + Date.now(),
+  status: "pending",        // 👈 VERY IMPORTANT
+  cust,
+  phone,
+  vehicle,
+  staff,
+  time,
+  parts: [
+    {
+      item: i,
+      qty: q,
+      price: stock[i].price || 0
+    }
+  ],
+  waterWash: 0,
+  labour: 0,
+  total: 0
+});
 
   localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
+
+}
+*/
+function startService(){
+  const bike = prompt("Bike Number:");
+  const cust = prompt("Customer Name:");
+  const phone = prompt("Phone (10 digits):");
+
+  if(!bike || !cust || !/^\d{10}$/.test(phone)){
+    alert("Invalid details");
+    return;
+  }
+
+  if(activeServices[bike]){
+    alert("Service already started for this bike");
+    return;
+  }
+
+ activeServices[bike] = {
+  cust,
+  phone,
+  parts: [],
+  labour: 0,
+  waterWash: 0,
+  status: "started",
+  startedAt: new Date().toISOString()
+};
+
+// 🔥 SAVE ACTIVE SERVICE TO FIRESTORE
+cloudSave({
+  stock,
+  serviceHistory,
+  bills,
+  customers,
+  meta,
+ activeServices: cleanActiveServices()
+});
+
+renderActiveServices();
+
+}
+function safeId(text){
+  return text.replace(/[^a-zA-Z0-9]/g,"_");
+}
+
+function addItemToBikeUI(bike){
+  const item = document.getElementById(`spare_${safeId(bike)}`).value;
+  const qty = +document.getElementById(`qty_${safeId(bike)}`).value;
+
+  if(qty <= 0){
+    alert("Enter valid quantity");
+    return;
+  }
+
+  if(stock[item].qty < qty){
+    alert("Not enough stock");
+    return;
+  }
+
+  const svc = activeServices[bike];
+  svc.status = "parts"; // 🔵 Parts Added
+
+  let found = svc.parts.find(p => p.item === item);
+  if(found){
+    found.qty += qty;
+  } else {
+    svc.parts.push({
+      item,
+      qty,
+      price: stock[item].price
+    });
+  }
+
+  document.getElementById(`qty_${bike}`).value = "";
+  renderActiveServices();
+}
+
+function closeAddItems(){
+  window.addingItemsForBike = null;
+  renderActiveServices();
+}
+
+function openAddItems(bike){
+  // 🔒 lock to ONE bike only
+  window.addingItemsForBike = bike;
+  toast("Adding items for " + bike,"info");
+  renderActiveServices();
+}
+
+function renderActiveServices(){
+  const box = document.getElementById("activeServices");
+  if(!box) return;
+
+  let h = "";
+
+  Object.keys(activeServices).forEach(bike=>{
+const s = activeServices[bike];
+
+// ✅ STATUS DEFAULTS (MUST EXIST)
+let statusText = "🟡 Started";
+let statusColor = "#f9a825";
+
+if (s.status === "parts") {
+  statusText = "🔵 Parts Added";
+  statusColor = "#1565c0";
+} else if (s.status === "completed") {
+  statusText = "🟢 Completed";
+  statusColor = "#2e7d32";
+} else if (s.status === "hold") {
+  statusText = "🔴 On Hold";
+  statusColor = "#c62828";
+}
+    
+    let partsHTML = s.parts.length
+      ? `<ul>${s.parts.map(p=>`<li>${p.item} × ${p.qty}</li>`).join("")}</ul>`
+      : `<small>No items added</small>`;
+let partsTotal = s.parts.reduce(
+  (t,p)=>t+(p.qty*p.price),0
+);
+
+
+    let addUI = "";
+    if(window.addingItemsForBike === bike){
+      addUI = `
+        <div style="margin-top:10px;border-top:1px dashed #ccc;padding-top:10px">
+         <div style="margin-top:10px">
+  ${Object.keys(stock).map(item => {
+    const p = s.parts.find(x => x.item === item);
+    const qty = p ? p.qty : 0;
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span>${item} (Stock: ${stock[item].qty})</span>
+        <div>
+          <button onclick="decItem('${bike}','${item}')">−</button>
+          <b style="margin:0 8px">${qty}</b>
+          <button onclick="incItem('${bike}','${item}')">+</button>
+        </div>
+      </div>
+    `;
+  }).join("")}
+</div>
+          <button onclick="closeAddItems()">✖</button>
+        </div>
+      `;
+    }
+
+    h += `
+      <div class="card">
+        <b>🛵 ${bike}</b>
+<span style="
+  float:right;
+  padding:4px 8px;
+  border-radius:6px;
+  font-size:12px;
+  color:white;
+  background:${statusColor}">
+  ${statusText}
+</span>
+<br>
+<br>
+Customer: ${s.cust}<br>
+Phone: ${s.phone}<br><br>
+
+        ${partsHTML}
+   
+          <b>Parts Total: ₹${partsTotal}</b><br><br>
+
+        <button onclick="openAddItems('${bike}')">➕ Add Items</button>
+        
+         ${addUI}
+
+${
+  s.status !== "hold"
+    ? `<button onclick="holdService('${bike}')" style="background:#c62828;color:white">⏸ Hold</button>`
+    : `<button onclick="resumeService('${bike}')" style="background:#2e7d32;color:white">▶ Resume</button>`
+}
+
+<button
+  onclick="confirmService('${bike}')"
+  ${s.status === "hold" ? "disabled" : ""}
+  style="background:#0a2e5c;color:white">
+  ✅ Confirm Service
+</button>
+
+      </div>
+    `;
+  });
+
+  box.innerHTML = h || `<div class="card">No active services</div>`;
+}
+
+function holdService(bike){
+  const s = activeServices[bike];
+  if(!s) return;
+
+  s.status = "hold";
+  toast("Service put on hold","info");
+  renderActiveServices();
+  syncActiveServices();
+}
+
+function resumeService(bike){
+  const s = activeServices[bike];
+  if(!s) return;
+
+  // Resume to correct state
+  s.status = s.parts.length > 0 ? "parts" : "started";
+
+  toast("Service resumed","success");
+  renderActiveServices();
+  syncActiveServices();
+}
+
+function incItem(bike, item){
+  const s = activeServices[bike];
+  if(!s) return;
+
+  s.status = "parts"; // 🔵 live update
+
+  if(stock[item].qty <= 0){
+    alert("Out of stock");
+    return;
+  }
+
+  let found = s.parts.find(p => p.item === item);
+  if(found){
+    if(found.qty >= stock[item].qty){
+      alert("Stock limit reached");
+      return;
+    }
+    found.qty++;
+  } else {
+    s.parts.push({ item, qty: 1, price: stock[item].price });
+  }
+  renderActiveServices();
+  syncActiveServices();
+}
+
+function decItem(bike, item){
+  const s = activeServices[bike];
+  let found = s.parts.find(p => p.item === item);
+  if(!found) return;
+
+  found.qty--;
+  if(found.qty <= 0){
+    s.parts = s.parts.filter(p => p.item !== item);
+  }
+
+  // 🟡 RESET STATUS IF NO PARTS LEFT
+  if(s.parts.length === 0){
+    s.status = "started";
+  }
+
+  renderActiveServices();
+  syncActiveServices();
+}
+
+function confirmService(bike){
+  const s = activeServices[bike];
+  if(!s || s.parts.length === 0){
+    alert("No items added");
+    return;
+  }
+
+  s.waterWash = confirm("Water wash done?") ? 100 : 0;
+  s.labour = +prompt("Labour charge (0 for free):","0") || 0;
+
+if(s.parts.length === 0 && s.labour === 0 && s.waterWash === 0){
+  alert("Service cannot be empty");
+  return;
+}
+
+  let total =
+    s.parts.reduce((t,p)=>t+(p.qty*p.price),0) +
+    s.waterWash +
+    s.labour;
+
+  // Reduce stock
+  s.parts.forEach(p=>{
+    stock[p.item].qty -= p.qty;
+  });
+
+  // Save service
+  serviceHistory.unshift({
+    id: "SRV-" + Date.now(),
+    status: "completed",
+    cust: s.cust,
+    phone: s.phone,
+    vehicle: bike,
+    time: new Date().toISOString(),
+    parts: s.parts,
+    waterWash: s.waterWash,
+    labour: s.labour,
+    total,
+    invoice:false
+  });
+
+  delete activeServices[bike];
+  cloudSave({
+  stock,
+  serviceHistory,
+  bills,
+  customers,
+  meta, 
+  activeServices: cleanActiveServices()
+});
+
+
   localStorage.setItem(LS("stock"), JSON.stringify(stock));
+  localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
   cloudSave({ stock, serviceHistory, bills, customers, meta });
 
-  let msg =
-`Hello ${cust},
-Dear Sir/Madam ,
+  toast("Service confirmed","success");
+  // auto-generate bill
+generateBillFromService(serviceHistory[0].id);
 
-Your vehicle ${vehicle} service is completed at
-${window.showroomProfile?.name || "Our Service Center"}
-
-🛠️ Service Date: ${time}
-👨‍🔧 Serviced by: ${staff}
-
-Thank you for visiting Authorised Service.`;
-
-  main.innerHTML = `
-    <div class="card">
-      <h3>Service Saved</h3>
-      <p><b>Customer:</b> ${cust}</p>
-      <p><b>Vehicle:</b> ${vehicle}</p>
-      <p><b>Staff:</b> ${staff}</p>
-      <p><b>Date:</b> ${time}</p>
-
-      <a class="whatsapp"
-         href="https://wa.me/91${phone}?text=${encodeURIComponent(msg)}"
-         target="_blank">
-         📲 Send WhatsApp Message
-      </a>
-
-      <br><br>
-      <button onclick="stockView()">⬅ Back to Stock</button>
-    </div>
-  `;
 }
-//Revenue view
+
+function sendServiceWhatsApp(s){
+  let msg =
+`Hello ${s.cust},
+
+Your bike ${s.vehicle} service is completed.
+
+Parts:
+${s.parts.map(p=>`- ${p.item} x${p.qty}`).join("\n")}
+
+Water Wash: ₹${s.waterWash}
+Labour: ₹${s.labour}
+Total: ₹${s.total}
+
+Thank you,
+${window.showroomProfile?.name}`;
+
+  window.open(
+    `https://wa.me/91${s.phone}?text=${encodeURIComponent(msg)}`
+  );
+}
+
+function sendServiceReminder(s){
+  const msg =
+`Hi ${s.cust},
+
+This is a friendly reminder that your bike (${s.vehicle})
+is due for service.
+
+Please visit us for a smooth and safe ride.
+
+Thank you,
+${window.showroomProfile?.name}`;
+
+  window.open(
+    `https://wa.me/91${s.phone}?text=${encodeURIComponent(msg)}`
+  );
+}
+
 function revenueView(){
   if(!window.can("revenue")){
     toast("Access denied","error");
     return;
   }
 
-  // existing revenue code continues below
+  // ---------- MONTHLY REVENUE MAP ----------
+    // ---------- TOP SPARE PARTS ----------
+  let partStats = {};
+  let monthlyMap = {};
+  let free = 0, paid = 0;
 
-  let today = new Date();
-  let todayStr = today.toDateString();
+    serviceHistory.forEach(s=>{
+    if(!s || !s.time) return;
 
-  let dailyTotal = 0;
-  let monthlyTotal = 0;
+    let d = new Date(s.time);
+    let key = d.toLocaleString("default",{month:"short"}) + " " + d.getFullYear();
 
-  bills.forEach(b=>{
-    let d = new Date(b.date);
+    monthlyMap[key] = (monthlyMap[key] || 0) + Number(s.total || 0);
 
-    // Daily
-    if(d.toDateString() === todayStr){
-      dailyTotal += b.total;
-    }
+    if(Number(s.total || 0) > 0) paid++;
+    else free++;
 
-    // Monthly
-    if(
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear()
-    ){
-      monthlyTotal += b.total;
+    // 🔧 collect spare usage
+    if(Array.isArray(s.parts)){
+      s.parts.forEach(p=>{
+        partStats[p.item] = (partStats[p.item] || 0) + p.qty;
+      });
     }
   });
 
-  main.innerHTML = `
+  let maxRevenue = Math.max(...Object.values(monthlyMap), 1);
+  let totalServices = free + paid || 1;
+
+  let freePct = Math.round((free / totalServices) * 100);
+  let paidPct = 100 - freePct;
+
+  // ---------- BUILD HTML ----------
+  let h = `
     <div class="card">
-      <h3>Revenue Summary</h3>
-      <p><b>Today:</b> ₹${dailyTotal}</p>
-      <p><b>This Month:</b> ₹${monthlyTotal}</p>
+      <h3>💰 Revenue Overview</h3>
+      <b>Total Services:</b> ${totalServices}<br>
+      <b>Paid:</b> ${paid} | <b>Free:</b> ${free}
+    </div>
+
+    <div class="card">
+      <h3>📊 Monthly Revenue</h3>
+  `;
+
+  Object.keys(monthlyMap).forEach(month=>{
+    let amt = monthlyMap[month];
+    let width = Math.round((amt / maxRevenue) * 100);
+
+    h += `
+      <div style="margin-bottom:10px">
+        <b>${month}</b> — ₹${amt}
+        <div style="height:12px;background:#ddd;border-radius:6px;margin-top:4px">
+          <div style="height:12px;width:${width}%;background:#0a2e5c;border-radius:6px"></div>
+        </div>
+      </div>
+    `;
+  });
+
+  if(!Object.keys(monthlyMap).length){
+    h += `<p>No revenue data available</p>`;
+  }
+   // ---------- TOP SPARES HTML ----------
+  let topParts = Object.entries(partStats)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,5);
+
+  h += `
+    <div class="card">
+      <h3>🔧 Top Spare Parts Used</h3>
+      <ul>
+        ${
+          topParts.length
+            ? topParts.map(p=>`<li>${p[0]} × ${p[1]}</li>`).join("")
+            : "<li>No spare data</li>"
+        }
+      </ul>
     </div>
   `;
+
+
+  h += `
+    </div>
+
+    <div class="card">
+      <h3>🆓 Free vs 💰 Paid Services</h3>
+
+      <p>Free Services: ${free} (${freePct}%)</p>
+      <div style="height:12px;background:#ddd;border-radius:6px">
+        <div style="height:12px;width:${freePct}%;background:#4caf50;border-radius:6px"></div>
+      </div>
+
+      <br>
+
+      <p>Paid Services: ${paid} (${paidPct}%)</p>
+      <div style="height:12px;background:#ddd;border-radius:6px">
+        <div style="height:12px;width:${paidPct}%;background:#0a2e5c;border-radius:6px"></div>
+      </div>
+    </div>
+  `;
+
+  main.innerHTML = h;
 }
 
 /* MONTHLY */
@@ -1061,15 +1568,48 @@ function invoiceView(){
 
 /* serviceHistory */
 function serviceHistoryView(){
-  if(!serviceHistory.length){main.innerHTML=`<div class="card">No serviceHistory</div>`;return;}
-  let h=`<div class="card"><h3>serviceHistory</h3></div>`;
-  serviceHistory.forEach(x=>{let repeat =
-  customers[x.phone]?.visits > 1
-    ? " ⭐ Repeat"
-    : "";
-    h+=`<div class="card"><b>${x.cust}</b>${repeat}<br> (${x.phone})<br>${x.vehicle}<br>${x.item} - ${x.qty}<br>${x.time}</div>`;
+  if(!serviceHistory.length){
+    main.innerHTML = `<div class="card">No service history</div>`;
+    return;
+  }
+
+  let h = `<div class="card"><h3>Service History</h3></div>`;
+
+  serviceHistory.forEach(x=>{
+    h += `
+      <div class="card">
+        <b>${x.cust}</b><br>
+        Phone: ${x.phone}<br>
+        Vehicle: ${x.vehicle}<br>
+        Date: ${new Date(x.time).toLocaleString()}<br>
+        Total: ₹${x.total || 0}<br><br>
+
+        <button
+          onclick='sendServiceWhatsApp(${JSON.stringify(x).replace(/"/g,"&quot;")})'
+          style="background:#25D366;color:white;border:none;padding:8px;border-radius:6px">
+          📲 WhatsApp
+        </button>
+
+        ${x.invoice
+  ? `<span style="color:green;font-weight:bold">✔ Bill Generated</span>
+     ${window.role==="owner"
+       ? `<button onclick="generateBillFromService('${x.id}')">🔁 Regenerate</button>`
+       : ``}`
+  : `<button onclick="generateBillFromService('${x.id}')">🧾 Generate Bill</button>`
+}
+${isServiceDue(x)
+  ? `<button
+       onclick="sendServiceReminder(${JSON.stringify(x).replace(/"/g,"&quot;")})"
+       style="margin-top:6px;background:#ff9800;color:#000;border:none;padding:6px;border-radius:6px">
+       🔔 Service Due Reminder
+     </button>`
+  : ``}
+
+      </div>
+    `;
   });
-  main.innerHTML=h;
+
+  main.innerHTML = h;
 }
 
 /* EXPORT / IMPORT */
@@ -1173,6 +1713,11 @@ function reprintBill(index){
      <img src="${window.showroomProfile?.logo || ''}" 
      style="max-width:90px;${window.showroomProfile?.logo?'':'display:none'}"><br>
      <h2>${window.showroomProfile.name}</h2>
+     <p>
+${window.showroomProfile?.address || ""}<br>
+Phone: ${window.showroomProfile?.phone || ""}
+</p>
+<p><small>GST included in price</small></p>
       <p><b>Bill No:</b> ${b.billNo}</p>
       <p><b>Date:</b> ${new Date(b.date).toLocaleString()}</p>
       <hr>
@@ -1187,12 +1732,46 @@ function reprintBill(index){
       </table>
 
       <h3>Total Amount: ₹${b.total}</h3>
-
-      <button onclick="window.print()">🖨 Print</button>
+       <hr>
+<p style="text-align:center">
+Thank you for servicing with us 🙏<br>
+Visit again
+</p>
+      <button onclick="printCurrentBill()">🖨 Print</button>
       <button onclick="savedBillsView()">⬅ Back</button>
     </div>
   `;
 }
+function generateBillFromService(serviceId){
+  const svc = serviceHistory.find(s => s.id === serviceId);
+
+  if(!svc){
+    alert("Service not found");
+    return;
+  }
+svc.invoice = true;
+  const bill = {
+    billNo: "BM-" + localStorage.invoiceNo.padStart(4,"0"),
+    phone: svc.phone,
+    vehicle: svc.vehicle,
+    date: new Date().toISOString(),
+    items: svc.parts,
+    labour: svc.labour,
+    total: svc.total
+  };
+
+  bills.unshift(bill);
+
+  localStorage.invoiceNo = (+localStorage.invoiceNo + 1).toString();
+  localStorage.setItem(LS("bills"), JSON.stringify(bills));
+
+  cloudSave({ stock, serviceHistory, bills, customers, meta });
+
+  // 👉 OPEN BILL VIEW
+  reprintBill(0);
+}
+
+/*
 function generateTodayBill(){
   selectedLabour = 0;
   let phone = prompt("Customer phone number:");
@@ -1307,7 +1886,7 @@ currentBill = {
   // ✅ increment SAME counter
   localStorage.invoiceNo = (+localStorage.invoiceNo + 1).toString();
 }
-
+*/
 function printBill(){
   if(!currentBill || !currentBill.phone){
   alert("Please generate bill first");
@@ -1328,7 +1907,7 @@ function printBill(){
  localStorage.setItem(LS("bills"), JSON.stringify(bills));
   cloudSave({ stock, serviceHistory, bills, customers, meta });
 
-  window.print();
+  printCurrentBill();
 }
 function lowStockView(){
   let h = `<div class="card"><h3>Low Stock Items</h3></div>`;
@@ -1356,6 +1935,18 @@ function setLabour(amount){
   selectedLabour = amount;
   document.getElementById("labourValue").innerText = amount;
 }
+
+function isServiceDue(service){
+  const last = new Date(service.time);
+  const now = new Date();
+
+  const diffDays = Math.floor(
+    (now - last) / (1000 * 60 * 60 * 24)
+  );
+
+  return diffDays >= 90;
+}
+
 
 function setCustomLabour(){
   let val = +document.getElementById("customLabour").value || 0;
@@ -1522,6 +2113,18 @@ if(prev && logoURL){
 }
   
   alert("Showroom updated successfully");
+}
+function printCurrentBill(){
+  const bill = document.getElementById("billArea");
+  if(!bill){
+    alert("Bill not ready. Please generate bill again.");
+    return;
+  }
+
+  setTimeout(() => {
+    window.focus();
+    window.print();
+  }, 500);
 }
 
 </script>
