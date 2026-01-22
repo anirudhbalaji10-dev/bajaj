@@ -799,10 +799,9 @@ function cloudSaveSafe(){
   
 window.cloudSave = function(data){
   if(typeof window._cloudSave === "function"){
-    window._cloudSave(data);
+    return window._cloudSave(data); // 🔥 RETURN IT
   }
 };
-
   let currentBill = {};
   
 /* SPLASH */
@@ -1501,18 +1500,8 @@ if(s.parts.length === 0 && s.labour === 0 && s.waterWash === 0){
 delete window.activeServices[bike];
 
 // 2️⃣ DELETE FROM FIRESTORE (THIS IS THE KEY FIX)
-await setDoc(
-  doc(db,"showrooms",currentShowroom,"app","data"),
-  {
-    activeServices: {
-      [bike]: deleteField()
-    }
-  },
-  { merge:true }
-);
-
 // 3️⃣ Save remaining data
-cloudSave({
+await cloudSave({
   stock,
   serviceHistory,
   bills,
@@ -1528,8 +1517,13 @@ renderActiveServicesSafe();
   localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
 
   toast("Service confirmed","success");
-  // auto-generate bill
-generateBillFromService(serviceHistory[0].id);
+
+// ✅ safe bill generation
+const lastService = serviceHistory[0];
+if (lastService && lastService.id) {
+  generateBillFromService(lastService.id);
+}
+
 
 }
 
