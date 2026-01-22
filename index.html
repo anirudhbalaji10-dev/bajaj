@@ -296,9 +296,11 @@ window.currentShowroom = "";
 window.stock = {};
 // 🔐 ROLE PERMISSIONS MATRIX
 window.serviceHistory = [];
-let activeServices = {};
+window.activeServices = {};
 window.addingItemsForBike = null;
 window.bills = [];
+window.showActiveServices = false;
+window.activeServiceSearch = "";
 window.customers = {};
 window.meta = {};
 window.PERMISSIONS = {
@@ -387,35 +389,35 @@ window.cloudLoad = async () => {
 window.startRealtimeSync = function(){
   if(!window.currentShowroom) return;
 
-  const ref = doc(db,"showrooms",currentShowroom,"app","data");
+  const ref = doc(db, "showrooms", currentShowroom, "app", "data");
 
- onSnapshot(ref, snap=>{
-  if(!snap.exists()) return;
+  onSnapshot(ref, snap => {
+  if (!snap.exists()) return;
 
   const d = snap.data();
 
-  // ✅ SAFE REAL-TIME SYNC (NO activeServices here)
-  if(d.stock) stock = d.stock;
-  if(d.serviceHistory) serviceHistory = d.serviceHistory;
-  if(d.bills) bills = d.bills;
-  if(d.activeServices && typeof d.activeServices === "object"){
-  activeServices = d.activeServices;
+  // 🔥 REAL-TIME ACTIVE SERVICES (SOURCE OF TRUTH)
+  window.activeServices = d.activeServices || {};
+
+  // normal realtime sync
+  if (d.stock) stock = d.stock;
+  if (d.serviceHistory) serviceHistory = d.serviceHistory;
+  if (d.bills) bills = d.bills;
+  if (d.customers) customers = d.customers;
+  if (d.meta) meta = d.meta;
+
+ updateActiveServicesCount();
+
+if (
+  window.showActiveServices &&
+  document.getElementById("activeServices")
+){
+  renderActiveServices();
 }
 
-if(d.customers) customers = d.customers;
-if(d.meta) meta = d.meta;
-
-  localStorage.setItem(LS("stock"), JSON.stringify(stock));
-  localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
-  localStorage.setItem(LS("bills"), JSON.stringify(bills));
-
-  // 🔄 refresh UI WITHOUT killing active services
-  if(document.getElementById("activeServices")){
-    renderActiveServices();
-  }
 });
-
 };
+
 
       
 window.db = db;
@@ -621,7 +623,9 @@ if(window.showroomProfile){
   applyShowroomBranding();
 }
     const cloudData = await window.cloudLoad();
+
 startRealtimeSync();
+
 
     if (cloudData) {
   stock = cloudData.stock ?? {};
@@ -630,13 +634,14 @@ startRealtimeSync();
   customers = cloudData.customers ?? {};
   meta = cloudData.meta ?? {};
 
-} else {
+}else {
   stock = JSON.parse(localStorage.getItem(LS("stock")) || "{}") || {};
   serviceHistory = JSON.parse(localStorage.getItem(LS("serviceHistory")) || "[]") || [];
   bills = JSON.parse(localStorage.getItem(LS("bills")) || "[]") || [];
   customers = JSON.parse(localStorage.getItem(LS("customers")) || "{}") || {};
   meta = JSON.parse(localStorage.getItem(LS("meta")) || "{}") || {};
 }
+
 
     localStorage.setItem(LS("stock"), JSON.stringify(stock));
     localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
@@ -723,7 +728,7 @@ window.logout = async function(){
 
 <input type="file" id="fileInput" hidden>
 <script>
-  
+
 document.addEventListener("DOMContentLoaded", ()=>{
   window.main = document.getElementById("main");
   window.fileInput = document.getElementById("fileInput");
@@ -748,8 +753,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
 function cleanActiveServices(){
   const clean = {};
 
-  Object.keys(activeServices).forEach(bike => {
-    const s = activeServices[bike];
+  Object.keys(window.activeServices).forEach(bike => {
+    const s = window.activeServices[bike];
 
     clean[bike] = {
       cust: s.cust,
@@ -762,6 +767,7 @@ function cleanActiveServices(){
       labour: Number(s.labour || 0),
       waterWash: Number(s.waterWash || 0),
       status: s.status,
+      paymentType: s.paymentType || "paid", // ✅ THIS WAS THE BUG
       startedAt: s.startedAt
     };
   });
@@ -770,6 +776,17 @@ function cleanActiveServices(){
 }
 
 function syncActiveServices(){
+  cloudSave({
+    stock,
+    serviceHistory,
+    bills,
+    customers,
+    meta,
+    activeServices: cleanActiveServices()
+  });
+}
+
+function cloudSaveSafe(){
   cloudSave({
     stock,
     serviceHistory,
@@ -893,7 +910,36 @@ function stockView(){
       </button>
     </div>
 
-    <div id="activeServices"></div>
+    <div class="card">
+  <button
+  id="activeServicesBtn"
+  onclick="toggleActiveServices()"
+  style="width:100%;padding:10px;font-size:16px"
+>
+  🔽 Active Services (0)
+</button>
+</div>
+
+<div
+  id="activeServices"
+  style="
+    display:none;
+    max-height:320px;
+    overflow-y:auto;
+    margin-top:10px;
+  "
+>
+  <div class="card">
+    <input
+      type="text"
+      placeholder="Search vehicle number..."
+      oninput="searchActiveService(this.value)"
+      style="width:100%;padding:8px;font-size:14px"
+    />
+  </div>
+
+  <div id="activeServicesList"></div>
+</div>
 
     <div class="card">
       <input type="text" id="stockSearch"
@@ -930,8 +976,34 @@ function stockView(){
   }
 
   main.innerHTML = h;
-  renderActiveServices(); // ✅ IMPORTANT
+  // 🔥 FORCE render AFTER realtime hydration
+// ✅ always try rendering after page load
+setTimeout(() => {
+  renderActiveServicesSafe();
+}, 300);
   localStorage.setItem(LS("stock"), JSON.stringify(stock));
+}
+
+function searchActiveService(value){
+  window.activeServiceSearch = value.trim().toLowerCase();
+  renderActiveServices();
+}
+
+function toggleActiveServices(){
+  const box = document.getElementById("activeServices");
+  if(!box) return;
+
+  window.showActiveServices = !window.showActiveServices;
+
+  box.style.display = window.showActiveServices ? "block" : "none";
+
+  if(!window.showActiveServices){
+    window.activeServiceSearch = "";
+  }
+
+  if(window.showActiveServices){
+    renderActiveServices();
+  }
 }
 
 function addStock(){
@@ -940,13 +1012,15 @@ function addStock(){
   let price = +prompt("Selling price (GST included)");
 stock[n] = { qty: q, cost: c, price: price };
   stockView();
-  cloudSave({ stock, serviceHistory, bills, customers, meta });
+  cloudSaveSafe();
+
 }
 function editStock(i){
   let q=+prompt("Qty"); if(q<0) return;
   stock[i].qty=q;
   stockView();
-  cloudSave({ stock, serviceHistory, bills, customers, meta });
+  cloudSaveSafe();
+
 }
 async function delStock(item){
   if(!confirm("Delete this spare permanently?")) return;
@@ -1049,32 +1123,25 @@ function startService(){
     return;
   }
 
-  if(activeServices[bike]){
+  if(window.activeServices[bike]){
     alert("Service already started for this bike");
     return;
   }
 
- activeServices[bike] = {
+ window.activeServices[bike] = {
   cust,
   phone,
   parts: [],
   labour: 0,
   waterWash: 0,
   status: "started",
+  paymentType: "paid",   // ✅ ADD THIS
   startedAt: new Date().toISOString()
 };
 
 // 🔥 SAVE ACTIVE SERVICE TO FIRESTORE
-cloudSave({
-  stock,
-  serviceHistory,
-  bills,
-  customers,
-  meta,
- activeServices: cleanActiveServices()
-});
-
-renderActiveServices();
+cloudSaveSafe();
+renderActiveServicesSafe();
 
 }
 function safeId(text){
@@ -1095,7 +1162,7 @@ function addItemToBikeUI(bike){
     return;
   }
 
-  const svc = activeServices[bike];
+  const svc = window.activeServices[bike];
   svc.status = "parts"; // 🔵 Parts Added
 
   let found = svc.parts.find(p => p.item === item);
@@ -1108,31 +1175,91 @@ function addItemToBikeUI(bike){
       price: stock[item].price
     });
   }
-
-  document.getElementById(`qty_${bike}`).value = "";
-  renderActiveServices();
+  renderActiveServicesSafe();
 }
 
 function closeAddItems(){
   window.addingItemsForBike = null;
-  renderActiveServices();
+  renderActiveServicesSafe();
 }
 
 function openAddItems(bike){
   // 🔒 lock to ONE bike only
   window.addingItemsForBike = bike;
   toast("Adding items for " + bike,"info");
-  renderActiveServices();
+  renderActiveServicesSafe();
 }
 
-function renderActiveServices(){
-  const box = document.getElementById("activeServices");
-  if(!box) return;
+function formatServiceTime(startedAt){
+  if(!startedAt) return "";
 
+  const start = new Date(startedAt).getTime();
+  const now   = Date.now();
+
+  const diffMin = Math.floor((now - start) / 60000);
+
+  if(diffMin < 60){
+    return `⏱️ ${diffMin} min ago`;
+  }
+
+  const hr  = Math.floor(diffMin / 60);
+  const min = diffMin % 60;
+
+  return `⏱️ ${hr} hr ${min} min ago`;
+}
+
+function renderActiveServicesSafe(){
+  if (
+    document.getElementById("activeServices") &&
+    typeof renderActiveServices === "function"
+  ){
+    renderActiveServices();
+  }
+}
+
+function setPaymentType(bike, type){
+  const s = window.activeServices[bike];
+  if(!s) return;
+
+  s.paymentType = type;
+
+  if(type === "free"){
+    s.labour = 0; // 🔒 force free
+  }
+
+  renderActiveServicesSafe();
+  syncActiveServices();
+}
+
+
+function renderActiveServices(){
+updateActiveServicesCount();
+const box = document.getElementById("activeServicesList");
+if(!box) return;
+
+if(!activeServices || Object.keys(activeServices).length === 0){
+  box.innerHTML = `<div class="card">No active services</div>`;
+  return;
+}
+  
   let h = "";
 
-  Object.keys(activeServices).forEach(bike=>{
-const s = activeServices[bike];
+  const keys = Object.keys(window.activeServices);
+
+const filtered = window.activeServiceSearch
+  ? keys.filter(bike =>
+      bike.toLowerCase().includes(window.activeServiceSearch)
+    )
+  : keys;
+
+if(filtered.length === 0){
+  box.innerHTML = `<div class="card">No matching active service</div>`;
+  return;
+}
+
+filtered.forEach(bike=>{
+
+const s = window.activeServices[bike];
 
 // ✅ STATUS DEFAULTS (MUST EXIST)
 let statusText = "🟡 Started";
@@ -1186,6 +1313,9 @@ let partsTotal = s.parts.reduce(
     h += `
       <div class="card">
         <b>🛵 ${bike}</b>
+<span style="float:right;font-size:12px;color:#555">
+  ${formatServiceTime(s.startedAt)}
+</span>
 <span style="
   float:right;
   padding:4px 8px;
@@ -1205,6 +1335,26 @@ Phone: ${s.phone}<br><br>
           <b>Parts Total: ₹${partsTotal}</b><br><br>
 
         <button onclick="openAddItems('${bike}')">➕ Add Items</button>
+        <div style="margin:8px 0">
+  <button
+    onclick="setPaymentType('${bike}','paid')"
+    style="
+      background:${s.paymentType==='paid'?'#2e7d32':'#ccc'};
+      color:white;
+      margin-right:6px
+    ">
+    💰 Paid
+  </button>
+
+  <button
+    onclick="setPaymentType('${bike}','free')"
+    style="
+      background:${s.paymentType==='free'?'#1565c0':'#ccc'};
+      color:white
+    ">
+    🆓 Free
+  </button>
+</div>
         
          ${addUI}
 
@@ -1228,30 +1378,38 @@ ${
   box.innerHTML = h || `<div class="card">No active services</div>`;
 }
 
+function updateActiveServicesCount(){
+  const btn = document.getElementById("activeServicesBtn");
+  if(!btn) return;
+
+  const count = Object.keys(window.activeServices || {}).length;
+  btn.innerText = `🔽 Active Services (${count})`;
+}
+
 function holdService(bike){
-  const s = activeServices[bike];
+  const s = window.activeServices[bike];
   if(!s) return;
 
   s.status = "hold";
   toast("Service put on hold","info");
-  renderActiveServices();
+  renderActiveServicesSafe();
   syncActiveServices();
 }
 
 function resumeService(bike){
-  const s = activeServices[bike];
+  const s = window.activeServices[bike];
   if(!s) return;
 
   // Resume to correct state
   s.status = s.parts.length > 0 ? "parts" : "started";
 
   toast("Service resumed","success");
-  renderActiveServices();
+  renderActiveServicesSafe();
   syncActiveServices();
 }
 
 function incItem(bike, item){
-  const s = activeServices[bike];
+  const s = window.activeServices[bike];
   if(!s) return;
 
   s.status = "parts"; // 🔵 live update
@@ -1271,12 +1429,12 @@ function incItem(bike, item){
   } else {
     s.parts.push({ item, qty: 1, price: stock[item].price });
   }
-  renderActiveServices();
+  renderActiveServicesSafe();
   syncActiveServices();
 }
 
 function decItem(bike, item){
-  const s = activeServices[bike];
+  const s = window.activeServices[bike];
   let found = s.parts.find(p => p.item === item);
   if(!found) return;
 
@@ -1290,19 +1448,24 @@ function decItem(bike, item){
     s.status = "started";
   }
 
-  renderActiveServices();
+  renderActiveServicesSafe();
   syncActiveServices();
 }
 
-function confirmService(bike){
-  const s = activeServices[bike];
+ async function confirmService(bike){
+  const s = window.activeServices[bike];
   if(!s || s.parts.length === 0){
     alert("No items added");
     return;
   }
 
   s.waterWash = confirm("Water wash done?") ? 100 : 0;
+
+if(s.paymentType === "paid"){
   s.labour = +prompt("Labour charge (0 for free):","0") || 0;
+} else {
+  s.labour = 0;
+}
 
 if(s.parts.length === 0 && s.labour === 0 && s.waterWash === 0){
   alert("Service cannot be empty");
@@ -1334,20 +1497,35 @@ if(s.parts.length === 0 && s.labour === 0 && s.waterWash === 0){
     invoice:false
   });
 
-  delete activeServices[bike];
-  cloudSave({
+// 1️⃣ Remove locally
+delete window.activeServices[bike];
+
+// 2️⃣ DELETE FROM FIRESTORE (THIS IS THE KEY FIX)
+await setDoc(
+  doc(db,"showrooms",currentShowroom,"app","data"),
+  {
+    activeServices: {
+      [bike]: deleteField()
+    }
+  },
+  { merge:true }
+);
+
+// 3️⃣ Save remaining data
+cloudSave({
   stock,
   serviceHistory,
   bills,
   customers,
-  meta, 
+  meta,
   activeServices: cleanActiveServices()
 });
 
+// 4️⃣ UI refresh
+renderActiveServicesSafe();
 
   localStorage.setItem(LS("stock"), JSON.stringify(stock));
   localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
-  cloudSave({ stock, serviceHistory, bills, customers, meta });
 
   toast("Service confirmed","success");
   // auto-generate bill
@@ -1765,7 +1943,7 @@ svc.invoice = true;
   localStorage.invoiceNo = (+localStorage.invoiceNo + 1).toString();
   localStorage.setItem(LS("bills"), JSON.stringify(bills));
 
-  cloudSave({ stock, serviceHistory, bills, customers, meta });
+  cloudSaveSafe();
 
   // 👉 OPEN BILL VIEW
   reprintBill(0);
@@ -1905,7 +2083,7 @@ function printBill(){
   });
 
  localStorage.setItem(LS("bills"), JSON.stringify(bills));
-  cloudSave({ stock, serviceHistory, bills, customers, meta });
+  cloudSaveSafe();
 
   printCurrentBill();
 }
