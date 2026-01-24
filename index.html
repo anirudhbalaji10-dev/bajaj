@@ -670,8 +670,16 @@ window.resetPassword = async () => {
   }
 
   try{
-    await sendPasswordResetEmail(auth, email);
-    alert("Password reset link sent to your email");
+    await sendPasswordResetEmail(auth, email, {
+  url: window.location.origin,
+  handleCodeInApp: false
+});
+    alert(
+  "Password reset email sent.\n\n" +
+  "👉 Open the link once.\n" +
+  "👉 Do not preview or forward.\n" +
+  "👉 If it fails, tap 'Forgot password' again."
+);
   }catch(e){
     alert("Email not found or error occurred");
   }
