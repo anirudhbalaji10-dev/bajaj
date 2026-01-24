@@ -354,6 +354,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL }
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 import { deleteField } 
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import { updatePassword } 
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 window.deleteField = deleteField;
 window.getDocs = getDocs;
 window.collection = collection;
@@ -770,9 +772,14 @@ function applyRoleUI(role){
   setTimeout(() => {
     const sp = document.getElementById("splash");
     if(sp) sp.style.display = "none";
-    loginBox.style.display = "block";
+
+    if(!localStorage.getItem("BM_WALKTHROUGH_DONE")){
+      showWalkthrough();
+    } else {
+      loginBox.style.display = "block";
+    }
   }, 800);
-  appBox.style.display = "none";
+appBox.style.display = "none";
   return;
 }
     window.currentUID = user.uid;
@@ -836,7 +843,50 @@ window.logout = async function(){
 </head>
 
 <body>
+<div id="walkthrough"
+     style="
+       display:none;
+       position:fixed;
+       inset:0;
+       background:#ffffff;
+       z-index:9999;
+       padding:30px;
+       text-align:center;
+     ">
+
+  <h2 id="wtTitle"></h2>
+  <p id="wtText" style="color:#555;margin-top:10px"></p>
+
+  <div style="margin-top:40px">
+    <div id="wtDots" style="margin-top:20px"></div>
+    <button
+      id="wtNextBtn"
+      style="padding:14px 20px;
+             background:#0a2e5c;
+             color:white;
+             border:none;
+             border-radius:8px;
+             width:100%">
+      Next
+    </button>
+
+    <button
+      onclick="skipWalkthrough()"
+      style="margin-top:14px;
+             background:none;
+             border:none;
+             color:#777">
+      Skip
+    </button>
+  </div>
+</div>
+
  <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
+ <p style="font-size:13px;color:#555;margin-bottom:12px">
+  👋 First time here?<br>
+  <b>Owners</b> → Tap <i>I am New</i> and create a showroom.<br>
+  <b>Staff</b> → Get the showroom code from owner and join.
+</p>
  <h2 id="loginShowroomTitle">Bajaj Login</h2>
   <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
   <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
@@ -857,7 +907,7 @@ window.logout = async function(){
   <button
   onclick="resetPassword()"
   style="margin-top:10px;background:none;border:none;color:#0a2e5c;text-decoration:underline">
-  Forgot password?
+  Forgot password? (Enter email first)
 </button>
    <br><br>
   <input id="showroomName" type="hidden">
@@ -1008,6 +1058,81 @@ window.logout = async function(){
 
 <input type="file" id="fileInput" hidden>
 <script>
+
+let wtStep = 0;
+
+const walkthroughScreens = [
+  {
+    title: "Welcome to Balaji Motors",
+    text: "Manage services, stock, billing and customers — all in one simple app."
+  },
+  {
+    title: "Owner or Staff?",
+    text: "Owners create a showroom. Staff join using the showroom code given by owner."
+  },
+  {
+    title: "Built for Daily Use",
+    text: "Fast billing, live services, WhatsApp updates, and zero confusion."
+  }
+];
+function renderDots(){
+  const dots = walkthroughScreens.map((_, i) =>
+    `<span style="
+      display:inline-block;
+      width:8px;
+      height:8px;
+      margin:0 4px;
+      border-radius:50%;
+      background:${i === wtStep ? '#0a2e5c' : '#ccc'};
+    "></span>`
+  ).join("");
+
+  document.getElementById("wtDots").innerHTML = dots;
+}
+
+function showWalkthrough(){
+  document.querySelector(".sidebar")?.classList.remove("show");
+  document.getElementById("walkthrough").style.display = "block";
+  renderWalkthrough();
+}
+
+function renderWalkthrough(){
+  const s = walkthroughScreens[wtStep];
+  document.getElementById("wtTitle").innerText = s.title;
+  document.getElementById("wtText").innerText = s.text;
+
+  document.getElementById("wtNextBtn").innerText =
+    wtStep === walkthroughScreens.length - 1
+      ? "Get Started"
+      : "Next";
+renderDots();
+}
+
+document.getElementById("wtNextBtn")?.addEventListener("click", () => {
+  wtStep++;
+
+  if(wtStep >= walkthroughScreens.length){
+    finishWalkthrough();
+  } else {
+    renderWalkthrough();
+  }
+});
+
+function skipWalkthrough(){
+  finishWalkthrough();
+}
+
+function finishWalkthrough(){
+  localStorage.setItem("BM_WALKTHROUGH_DONE", "1");
+  document.getElementById("walkthrough").style.display = "none";
+
+  // If user is logged in, go back to dashboard
+  if(auth.currentUser){
+    dashboard();
+  } else {
+    backToLogin();
+  }
+}
 
 document.addEventListener("DOMContentLoaded", ()=>{
   window.main = document.getElementById("main");
@@ -1514,6 +1639,15 @@ function setPaymentType(bike, type){
   renderActiveServicesSafe();
 }
 
+function replayWalkthrough(){
+  wtStep = 0;
+
+  // Hide any open auth screens just in case
+  hideAllAuthBoxes();
+
+  document.getElementById("walkthrough").style.display = "block";
+  renderWalkthrough();
+}
 
 function renderActiveServices(){
 updateActiveServicesCount();
@@ -2524,8 +2658,35 @@ function showroomSettingsView(){
       <button onclick="saveShowroomSettings()" class="big-btn" style="background:#0a2e5c;color:white;border:none;">
         💾 Save Settings
       </button>
+    <button
+  onclick="replayWalkthrough()"
+  class="big-btn"
+  style="margin-top:10px;background:#607d8b;color:white;border:none">
+  📘 How this app works
+</button>
+      <button
+  onclick="changePasswordInApp()"
+  class="big-btn"
+  style="margin-top:10px;background:#607d8b;color:white;border:none">
+  🔑 Change Password
+</button>
     </div>
   `;
+}
+
+async function changePasswordInApp(){
+  const newPass = prompt("Enter new password (min 6 chars):");
+  if(!newPass || newPass.length < 6){
+    alert("Password must be at least 6 characters");
+    return;
+  }
+
+  try{
+    await updatePassword(auth.currentUser, newPass);
+    alert("Password updated successfully ✅");
+  }catch(e){
+    alert("For security, please logout and login again, then retry.");
+  }
 }
 
 async function saveShowroomSettings(){
