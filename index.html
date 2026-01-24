@@ -442,15 +442,19 @@ window.getUserProfile = async (uid) => {
   const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
 
+  // 🔥 AUTO-FIX MISSING PROFILE
   if (!snap.exists()) {
-    console.error("USER DOC NOT FOUND FOR UID:", uid);
-    throw new Error("User profile not found");
+    console.warn("Profile missing. Creating profile for UID:", uid);
+
+    await setDoc(ref, {
+      role: "staff",
+      showroomId: ""
+    });
+
+    throw new Error("PROFILE_CREATED_RELOGIN");
   }
 
   const data = snap.data();
-
-  // ❌ Do NOT fix or create anything here
-  // Login = READ ONLY
 
   if (!data.role || !data.showroomId) {
     throw new Error("USER_PROFILE_INCOMPLETE");
@@ -705,10 +709,15 @@ function applyRoleUI(role){
       console.log("ROLE:", window.role);
       applyRoleUI(window.role);
     }catch(e){
-      alert("User profile missing. Please login again.");
-      await auth.signOut();
-      return;
-    }
+  if (e.message === "PROFILE_CREATED_RELOGIN") {
+    alert("Account setup completed. Please login again.");
+  } else {
+    alert("User profile missing. Please contact owner.");
+  }
+
+  await auth.signOut();
+  return;
+}
 
     if(profile.role === "revoked"){
       alert("Your access has been revoked.");
