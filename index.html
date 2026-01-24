@@ -108,13 +108,28 @@ body.dark{
 .main{flex:1;padding:20px;overflow:auto}
 .card{
   background:var(--card);
-  padding:15px;
-  border-radius:10px;
-  margin-bottom:12px;
-  box-shadow:0 2px 6px rgba(0,0,0,.1);
+  padding:16px;
+  border-radius:12px;
+  margin-bottom:14px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+.card .btn{
+  margin-top:6px;
+}
+.card + .card{
+  animation: fadeIn .25s ease;
+}
+
+@keyframes fadeIn{
+  from{opacity:0; transform:translateY(4px)}
+  to{opacity:1; transform:none}
 }
 .low{color:var(--danger);font-weight:bold}
-.btnRow{display:flex;gap:6px;margin-top:6px;flex-direction: row;}
+.btnRow{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+}
 .btnRow button{flex:1;padding:8px;border:none;border-radius:6px;color:#fff}
 .reduce{background:var(--danger)}
 .edit{background:#455a64}
@@ -241,6 +256,75 @@ body.dark::after{
     top: 0;
     width: 100%;
   }
+}
+
+/* 🌿 SOFT MODERN BUTTON SYSTEM */
+
+.btn{
+  padding:10px 16px;
+  border-radius:12px;
+  border:none;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  background:#e0e0e0;
+  color:#000;
+  transition: background .2s ease, transform .12s ease, box-shadow .2s ease;
+}
+
+.btn:active{
+  transform:scale(0.97);
+}
+
+.btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+/* COLORS */
+.btn-primary{ background:#0a2e5c; color:#fff; }
+.btn-success{ background:#43a047; color:#fff; }
+.btn-danger{ background:#e53935; color:#fff; }
+.btn-info{ background:#1e88e5; color:#fff; }
+.btn-warning{ background:#f9a825; color:#000; }
+.btn-dark{ background:#263238; color:#fff; }
+
+/* OUTLINE (for toggles) */
+.btn-outline{
+  background:#f2f2f2;
+  color:#555;
+}
+
+/* BIG ACTION BUTTON */
+.big-btn{
+  font-size:16px;
+  padding:14px 18px;
+}
+/* ❌ SHAKE ANIMATION (error feedback) */
+.shake{
+  animation: shake .35s ease;
+}
+
+@keyframes shake{
+  0%{transform:translateX(0)}
+  25%{transform:translateX(-6px)}
+  50%{transform:translateX(6px)}
+  75%{transform:translateX(-6px)}
+  100%{transform:translateX(0)}
+}
+h1,h2,h3{
+  margin:0 0 8px;
+  font-weight:600;
+}
+
+h2{ font-size:20px }
+h3{ font-size:16px }
+
+small{
+  color:#777;
+}
+body.dark small{
+  color:#aaa;
 }
 
 
@@ -380,43 +464,56 @@ window.getShowroomProfile = async (sid) => {
   return snap.exists() ? snap.data() : null;
 };
 
-window.cloudLoad = async () => {
-  if(!window.currentShowroom) return null;
-  const snap = await getDoc(doc(db,"showrooms", window.currentShowroom, "app","data"));
-  return snap.exists() ? snap.data() : null;
-};
+async function loadInitialData() {
+  const ref = doc(db, "showrooms", currentShowroom, "app", "data");
+  const snap = await getDoc(ref);
 
-window.startRealtimeSync = function(){
-  if(!window.currentShowroom) return;
+  if (!snap.exists()) {
+    stock = {};
+    serviceHistory = [];
+    bills = [];
+    customers = {};
+    meta = {};
+    activeServices = {};
+
+    await cloudSaveSafe();
+    return;
+  }
+
+  const d = snap.data();
+
+  stock = d.stock || {};
+  serviceHistory = d.serviceHistory || [];
+  bills = d.bills || [];
+  customers = d.customers || {};
+  meta = d.meta || {};
+  activeServices = d.activeServices || {};
+}
+
+function startRealtimeSync() {
+  if (!currentShowroom) return;
 
   const ref = doc(db, "showrooms", currentShowroom, "app", "data");
 
   onSnapshot(ref, snap => {
-  if (!snap.exists()) return;
+    if (!snap.exists()) return;
 
-  const d = snap.data();
+    const d = snap.data();
 
-  // 🔥 REAL-TIME ACTIVE SERVICES (SOURCE OF TRUTH)
-  window.activeServices = d.activeServices || {};
+    stock = d.stock || {};
+    serviceHistory = d.serviceHistory || [];
+    bills = d.bills || [];
+    customers = d.customers || {};
+    meta = d.meta || {};
+    activeServices = d.activeServices || {};
 
-  // normal realtime sync
-  if (d.stock) stock = d.stock;
-  if (d.serviceHistory) serviceHistory = d.serviceHistory;
-  if (d.bills) bills = d.bills;
-  if (d.customers) customers = d.customers;
-  if (d.meta) meta = d.meta;
+    updateActiveServicesCount();
 
- updateActiveServicesCount();
-
-if (
-  window.showActiveServices &&
-  document.getElementById("activeServices")
-){
-  renderActiveServices();
+    if (window.showActiveServices) {
+      renderActiveServicesSafe();
+    }
+  });
 }
-
-});
-};
 
 
       
@@ -427,29 +524,37 @@ window.fbDoc = doc;
 window.firebaseLogin = (email, pass) =>
   signInWithEmailAndPassword(auth, email, pass);
 
-window._cloudSave = async (data) => {
-  if(!auth.currentUser || !window.currentShowroom) return;
-  try{
-    data._lastUpdated = new Date().toISOString();
-    data._by = window.currentUID;
+window._cloudSave = async function () {
+  if (!auth.currentUser || !currentShowroom) return;
 
+  const payload = {
+    stock,
+    serviceHistory,
+    bills,
+    customers,
+    meta,
+    activeServices: cleanActiveServices(),
+    _lastUpdated: new Date().toISOString(),
+    _by: currentUID
+  };
+
+  try {
     await setDoc(
-      doc(db,"showrooms",window.currentShowroom,"app","data"),
-      data,
-      { merge:true }
+      doc(db, "showrooms", currentShowroom, "app", "data"),
+      payload,
+      { merge: true }
     );
-  }catch(e){
+  } catch (e) {
     console.error("Cloud save failed", e);
   }
 };
-
 
 document.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
   const loginBtn = document.getElementById("loginBtn");
 const signupBtn = document.getElementById("signupBtn");
 
-loginBtn.onclick = async () => {
+loginBtn.onclick = async (event) => {
   const email = document.getElementById("email").value.trim();
   const pass  = document.getElementById("password").value;
 
@@ -458,10 +563,19 @@ loginBtn.onclick = async () => {
     return;
   }
 
+  const btn = event.target;
+  setLoading(btn, "Logging in…");
+
   try {
     await window.firebaseLogin(email, pass);
   } catch(e){
-    alert(e.message);
+    clearLoading(btn);
+
+    // ❌ error feedback
+    btn.classList.add("shake");
+    setTimeout(()=>btn.classList.remove("shake"),350);
+
+    toast("Invalid login details","error");
   }
 };
 
@@ -583,13 +697,12 @@ function applyRoleUI(role){
   return;
 }
     window.currentUID = user.uid;
-    localStorage.currentUID = user.uid;
 
     let profile;
     try{
       profile = await getUserProfile(user.uid);
       window.role = profile.role;   // ✅ REQUIRED
-      alert("ROLE FROM FIRESTORE = " + window.role);
+      console.log("ROLE:", window.role);
       applyRoleUI(window.role);
     }catch(e){
       alert("User profile missing. Please login again.");
@@ -617,43 +730,10 @@ if(sp) sp.style.display = "none";
   if(window.showroomProfile){
     applyShowroomBranding();
   }
-}
-
-if(window.showroomProfile){
-  applyShowroomBranding();
-}
-    const cloudData = await window.cloudLoad();
-
+}    
+await loadInitialData();
 startRealtimeSync();
-
-
-    if (cloudData) {
-  stock = cloudData.stock ?? {};
-  serviceHistory = cloudData.serviceHistory ?? [];
-  bills = cloudData.bills ?? [];
-  customers = cloudData.customers ?? {};
-  meta = cloudData.meta ?? {};
-
-}else {
-  stock = JSON.parse(localStorage.getItem(LS("stock")) || "{}") || {};
-  serviceHistory = JSON.parse(localStorage.getItem(LS("serviceHistory")) || "[]") || [];
-  bills = JSON.parse(localStorage.getItem(LS("bills")) || "[]") || [];
-  customers = JSON.parse(localStorage.getItem(LS("customers")) || "{}") || {};
-  meta = JSON.parse(localStorage.getItem(LS("meta")) || "{}") || {};
-}
-
-
-    localStorage.setItem(LS("stock"), JSON.stringify(stock));
-    localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
-    localStorage.setItem(LS("bills"), JSON.stringify(bills));
-    localStorage.setItem(LS("customers"), JSON.stringify(customers));
-    localStorage.setItem(LS("meta"), JSON.stringify(meta));
-
-    if(window.main){
-      dashboard();
-    } else {
-      setTimeout(dashboard,300);
-    }
+dashboard();
 
   });
     
@@ -740,10 +820,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
         let d=JSON.parse(ev.target.result);
         stock=d.stock||{};
         serviceHistory=d.serviceHistory||[];
-        localStorage.setItem(LS("stock"), JSON.stringify(stock));
-       localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
         dashboard();
-        cloudSave({ stock, serviceHistory, bills, customers, meta, activeServices: cleanActiveServices() });
+        cloudSaveSafe();
       };
       r.readAsText(e.target.files[0]);
     };
@@ -775,33 +853,18 @@ function cleanActiveServices(){
   return clean;
 }
 
-function syncActiveServices(){
-  cloudSave({
-    stock,
-    serviceHistory,
-    bills,
-    customers,
-    meta,
-    activeServices: cleanActiveServices()
-  });
-}
-
 function cloudSaveSafe(){
-  cloudSave({
-    stock,
-    serviceHistory,
-    bills,
-    customers,
-    meta,
-    activeServices: cleanActiveServices()
-  });
+  if(typeof window._cloudSave === "function"){
+    return window._cloudSave();
+  }
 }
   
-window.cloudSave = function(data){
+window.cloudSave = function(){
   if(typeof window._cloudSave === "function"){
-    return window._cloudSave(data); // 🔥 RETURN IT
+    return window._cloudSave();
   }
 };
+
   let currentBill = {};
   
 /* SPLASH */
@@ -857,6 +920,18 @@ function toast(msg, type="info"){
     t.classList.remove("show");
   }, 2500);
 }
+function setLoading(btn, text = "Please wait…"){
+  if(!btn) return;
+  btn.dataset.oldText = btn.innerHTML;
+  btn.innerHTML = "⏳ " + text;
+  btn.disabled = true;
+}
+
+function clearLoading(btn){
+  if(!btn) return;
+  btn.innerHTML = btn.dataset.oldText;
+  btn.disabled = false;
+}
 
 /* DATA */
 
@@ -902,11 +977,11 @@ function dashboard(){
 function stockView(){
   let h = `
     <div class="card">
-      <button class="big-btn"
-        style="background:#4caf50;color:white;border:none"
-        onclick="startService()">
-        ➕ Start New Service
-      </button>
+      <button class="btn btn-success big-btn"
+  onclick="startService()">
+  ➕ Start New Service
+</button>
+
     </div>
 
     <div class="card">
@@ -961,9 +1036,13 @@ function stockView(){
         <div class="btnRow">
           ${
             window.role==="owner"
-              ? `<button class="edit" onclick="editStock('${i}')">Edit</button>
-                 <button class="delete" onclick="delStock('${i}')">Delete</button>`
-              : ""
+              ? `<button class="btn btn-info edit"
+  onclick="editStock('${i}')">Edit</button>
+
+<button class="btn btn-danger delete"
+  onclick="delStock('${i}')">Delete</button>`
+: ""
+
           }
         </div>
       </div>
@@ -980,7 +1059,6 @@ function stockView(){
 setTimeout(() => {
   renderActiveServicesSafe();
 }, 300);
-  localStorage.setItem(LS("stock"), JSON.stringify(stock));
 }
 
 function searchActiveService(value){
@@ -1028,7 +1106,6 @@ async function delStock(item){
 
   // 1️⃣ Delete locally
   delete stock[item];
-  localStorage.setItem(LS("stock"), JSON.stringify(stock));
   stockView();
 
   try{
@@ -1227,7 +1304,6 @@ function setPaymentType(bike, type){
   }
 
   renderActiveServicesSafe();
-  syncActiveServices();
 }
 
 
@@ -1336,40 +1412,38 @@ Phone: ${s.phone}<br><br>
         <button onclick="openAddItems('${bike}')">➕ Add Items</button>
         <div style="margin:8px 0">
   <button
-    onclick="setPaymentType('${bike}','paid')"
-    style="
-      background:${s.paymentType==='paid'?'#2e7d32':'#ccc'};
-      color:white;
-      margin-right:6px
-    ">
-    💰 Paid
-  </button>
+  class="btn ${s.paymentType==='paid' ? 'btn-success' : 'btn-outline'}"
+  onclick="setPaymentType('${bike}','paid')">
+  💰 Paid
+</button>
 
-  <button
-    onclick="setPaymentType('${bike}','free')"
-    style="
-      background:${s.paymentType==='free'?'#1565c0':'#ccc'};
-      color:white
-    ">
-    🆓 Free
-  </button>
+<button
+  class="btn ${s.paymentType==='free' ? 'btn-info' : 'btn-outline'}"
+  onclick="setPaymentType('${bike}','free')">
+  🆓 Free
+</button>
+
 </div>
         
          ${addUI}
 
 ${
-  s.status !== "hold"
-    ? `<button onclick="holdService('${bike}')" style="background:#c62828;color:white">⏸ Hold</button>`
-    : `<button onclick="resumeService('${bike}')" style="background:#2e7d32;color:white">▶ Resume</button>`
+  s.status === "hold"
+    ? `<button class="btn btn-success"
+         onclick="resumeService('${bike}')">
+         ▶ Resume
+       </button>`
+    : `<button class="btn btn-danger"
+         onclick="holdService('${bike}')">
+         ⏸ Hold
+       </button>`
 }
 
-<button
+<button class="btn btn-primary"
   onclick="confirmService('${bike}')"
-  ${s.status === "hold" ? "disabled" : ""}
-  style="background:#0a2e5c;color:white">
+  ${s.status === "hold" ? "disabled" : ""}>
   ✅ Confirm Service
 </button>
-
       </div>
     `;
   });
@@ -1392,7 +1466,6 @@ function holdService(bike){
   s.status = "hold";
   toast("Service put on hold","info");
   renderActiveServicesSafe();
-  syncActiveServices();
 }
 
 function resumeService(bike){
@@ -1404,7 +1477,6 @@ function resumeService(bike){
 
   toast("Service resumed","success");
   renderActiveServicesSafe();
-  syncActiveServices();
 }
 
 function incItem(bike, item){
@@ -1429,7 +1501,6 @@ function incItem(bike, item){
     s.parts.push({ item, qty: 1, price: stock[item].price });
   }
   renderActiveServicesSafe();
-  syncActiveServices();
 }
 
 function decItem(bike, item){
@@ -1448,10 +1519,11 @@ function decItem(bike, item){
   }
 
   renderActiveServicesSafe();
-  syncActiveServices();
 }
 
  async function confirmService(bike){
+   const btn = event?.target;
+setLoading(btn, "Confirming…");
   const s = window.activeServices[bike];
   if(!s || s.parts.length === 0){
     alert("No items added");
@@ -1483,38 +1555,42 @@ if(s.parts.length === 0 && s.labour === 0 && s.waterWash === 0){
 
   // Save service
   serviceHistory.unshift({
-    id: "SRV-" + Date.now(),
-    status: "completed",
-    cust: s.cust,
-    phone: s.phone,
-    vehicle: bike,
-    time: new Date().toISOString(),
-    parts: s.parts,
-    waterWash: s.waterWash,
-    labour: s.labour,
-    total,
-    invoice:false
-  });
+  id: "SRV-" + Date.now(),
+  status: "completed",
+  cust: s.cust,
+  phone: s.phone,
+  vehicle: bike,
+  time: new Date().toISOString(),
+  parts: s.parts,
+  waterWash: s.waterWash,
+  labour: s.labour,
+  total,
+  paymentType: s.paymentType, // 🔑 THIS WAS MISSING
+  invoice:false
+});
 
 // 1️⃣ Remove locally
 delete window.activeServices[bike];
 
 // 2️⃣ DELETE FROM FIRESTORE (THIS IS THE KEY FIX)
 // 3️⃣ Save remaining data
-await cloudSave({
-  stock,
-  serviceHistory,
-  bills,
-  customers,
-  meta,
-  activeServices: cleanActiveServices()
-});
+// 🔁 update customer profile
+if(!customers[s.phone]){
+  customers[s.phone] = {
+    name: s.cust,
+    vehicle: bike,
+    visits: 1
+  };
+} else {
+  customers[s.phone].visits++;
+  customers[s.phone].vehicle = bike;
+}
+
+await cloudSaveSafe();
+
 
 // 4️⃣ UI refresh
 renderActiveServicesSafe();
-
-  localStorage.setItem(LS("stock"), JSON.stringify(stock));
-  localStorage.setItem(LS("serviceHistory"), JSON.stringify(serviceHistory));
 
   toast("Service confirmed","success");
 
@@ -1524,6 +1600,7 @@ if (lastService && lastService.id) {
   generateBillFromService(lastService.id);
 }
 
+clearLoading(btn);
 
 }
 
@@ -1585,8 +1662,8 @@ function revenueView(){
 
     monthlyMap[key] = (monthlyMap[key] || 0) + Number(s.total || 0);
 
-    if(Number(s.total || 0) > 0) paid++;
-    else free++;
+    if(s.paymentType === "paid") paid++;
+else free++;
 
     // 🔧 collect spare usage
     if(Array.isArray(s.parts)){
@@ -1794,7 +1871,6 @@ function exportData(){
   // existing export code
 
   meta.lastBackup = new Date().toISOString();
-localStorage.setItem(LS("meta"), JSON.stringify(meta));
   let b=new Blob([JSON.stringify({stock,serviceHistory},null,2)],{type:"application/json"});
   let a=document.createElement("a");
   a.href=URL.createObjectURL(b);
@@ -1935,8 +2011,6 @@ svc.invoice = true;
   bills.unshift(bill);
 
   localStorage.invoiceNo = (+localStorage.invoiceNo + 1).toString();
-  localStorage.setItem(LS("bills"), JSON.stringify(bills));
-
   cloudSaveSafe();
 
   // 👉 OPEN BILL VIEW
@@ -2075,8 +2149,6 @@ function printBill(){
     labour: currentBill.labour,
     total: currentBill.total
   });
-
- localStorage.setItem(LS("bills"), JSON.stringify(bills));
   cloudSaveSafe();
 
   printCurrentBill();
@@ -2249,7 +2321,8 @@ function showroomSettingsView(){
 }
 
 async function saveShowroomSettings(){
-
+  const btn = event.target;
+setLoading(btn, "Saving…");
   const name = document.getElementById("ss_name").value.trim();
   const phone = document.getElementById("ss_phone").value.trim();
   const address = document.getElementById("ss_address").value.trim();
@@ -2285,6 +2358,8 @@ if(prev && logoURL){
 }
   
   alert("Showroom updated successfully");
+clearLoading(btn);
+
 }
 function printCurrentBill(){
   const bill = document.getElementById("billArea");
