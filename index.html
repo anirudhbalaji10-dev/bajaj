@@ -440,21 +440,70 @@ window.applyShowroomBranding = () => {
   if(footer) footer.innerText = name;
 };
 
+window.openSetup = () => {
+  hideAllAuthBoxes();
+  document.getElementById("setupBox").style.display = "block";
+};
+
+window.backToLogin = () => {
+  hideAllAuthBoxes();
+  document.getElementById("loginBox").style.display = "block";
+};
+
+window.startOwnerSetup = () => {
+  hideAllAuthBoxes();
+  document.getElementById("ownerSetupBox").style.display = "block";
+};
+
+window.startStaffSetup = () => {
+  hideAllAuthBoxes();
+  document.getElementById("staffSetupBox").style.display = "block";
+};
+
+window.ownerSignup = () => {
+  // Reuse existing signup logic by filling hidden fields
+
+  document.getElementById("email").value =
+    document.getElementById("ownerEmail").value.trim();
+
+  document.getElementById("password").value =
+    document.getElementById("ownerPass").value;
+
+  document.getElementById("showroomName").value =
+    document.getElementById("ownerShowroomName").value.trim();
+
+  // IMPORTANT: owner has NO showroom code
+  document.getElementById("showroomCode").value = "";
+
+  // Trigger existing signup flow
+  document.getElementById("signupBtn").click();
+};
+
+window.staffSignup = () => {
+  document.getElementById("email").value =
+    document.getElementById("staffEmail").value.trim();
+
+  document.getElementById("password").value =
+    document.getElementById("staffPass").value;
+
+  document.getElementById("showroomCode").value =
+    document.getElementById("staffCode").value.trim();
+
+  // Staff does NOT create showroom name
+  document.getElementById("showroomName").value = "";
+
+  // Trigger existing signup flow
+  document.getElementById("signupBtn").click();
+};
+
 window.getUserProfile = async (uid) => {
   const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
 
   // 🔥 AUTO-FIX MISSING PROFILE
   if (!snap.exists()) {
-    console.warn("Profile missing. Creating profile for UID:", uid);
-
-    await setDoc(ref, {
-      role: "staff",
-      showroomId: ""
-    });
-
-    throw new Error("PROFILE_CREATED_RELOGIN");
-  }
+  throw new Error("USER_PROFILE_MISSING");
+}
 
   const data = snap.data();
 
@@ -789,35 +838,135 @@ window.logout = async function(){
 <body>
  <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
  <h2 id="loginShowroomTitle">Bajaj Login</h2>
-  <p style="font-size:13px;color:#555;margin-bottom:12px">
-  👋 First time here?  
-  <br>
-  Owners create a new showroom.  
-  Staff login using showroom code from owner.
-</p>
   <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
   <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
-   <input
+   <!--<input
   id="showroomCode"
   placeholder="Showroom Code (Staff only)"
   onfocus="showCodeHint()"
-  style="width:100%;padding:10px;margin-bottom:8px">
+  style="width:100%;padding:10px;margin-bottom:8px">-->
   <small>Already have an account?</small>
   <button id="loginBtn" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
     Login
   </button>
+ <button
+  onclick="openSetup()"
+  style="width:100%;padding:12px;margin-top:10px;background:#4caf50;color:white;border:none;">
+  I am New (Start Setup)
+</button>
   <button
   onclick="resetPassword()"
   style="margin-top:10px;background:none;border:none;color:#0a2e5c;text-decoration:underline">
   Forgot password?
 </button>
    <br><br>
-  <input id="showroomName" placeholder="Showroom Name"
- style="width:100%;padding:10px;margin-bottom:8px">
- <small>New showroom owner?</small>
-<button id="signupBtn" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
-  Create New Account
-</button>
+  <input id="showroomName" type="hidden">
+<button id="signupBtn" style="display:none"></button>
+<input id="showroomCode" type="hidden">
+</div>
+
+<div id="setupBox"
+     style="max-width:360px;margin:60px auto;padding:20px;display:none">
+
+  <h2>Start Setup</h2>
+  <p style="font-size:13px;color:#555">
+    Choose how you want to use the app
+  </p>
+
+  <button
+    style="width:100%;padding:14px;margin-bottom:10px;background:#0a2e5c;color:white;border:none"
+    onclick="startOwnerSetup()">
+    🏢 I Own the Showroom
+  </button>
+
+  <button
+    style="width:100%;padding:14px;background:#607d8b;color:white;border:none"
+    onclick="startStaffSetup()">
+    👨‍🔧 I Work Here (Staff)
+  </button>
+
+  <br><br>
+  <button onclick="backToLogin()" style="background:none;border:none;color:#0a2e5c">
+    ← Back
+  </button>
+</div>
+
+<div id="ownerSetupBox"
+     style="max-width:360px;margin:60px auto;padding:20px;display:none">
+
+  <h2>Create Showroom</h2>
+
+  <p style="font-size:13px;color:#555;margin-bottom:14px">
+    Enter details to start using the app
+  </p>
+
+  <input id="ownerEmail"
+         type="email"
+         placeholder="Email"
+         style="width:100%;padding:10px;margin-bottom:8px">
+
+  <input id="ownerPass"
+         type="password"
+         placeholder="Password (min 6 chars)"
+         style="width:100%;padding:10px;margin-bottom:8px">
+
+  <input id="ownerShowroomName"
+         placeholder="Showroom Name"
+         style="width:100%;padding:10px;margin-bottom:12px">
+
+  <button
+    style="width:100%;padding:12px;
+           background:#4caf50;color:white;border:none;border-radius:6px"
+    onclick="ownerSignup()">
+    Create Showroom
+  </button>
+
+  <br><br>
+
+  <button
+    onclick="openSetup()"
+    style="background:none;border:none;color:#0a2e5c">
+    ← Back
+  </button>
+</div>
+
+<div id="staffSetupBox"
+     style="max-width:360px;margin:60px auto;padding:20px;display:none">
+
+  <h2>Join Showroom</h2>
+
+  <p style="font-size:13px;color:#555;margin-bottom:14px">
+    Enter details given by your showroom owner
+  </p>
+
+  <input id="staffEmail"
+         type="email"
+         placeholder="Email"
+         style="width:100%;padding:10px;margin-bottom:8px">
+
+  <input id="staffPass"
+         type="password"
+         placeholder="Password (min 6 chars)"
+         style="width:100%;padding:10px;margin-bottom:8px">
+
+  <input id="staffCode"
+         placeholder="Showroom Code (from owner)"
+         style="width:100%;padding:10px;margin-bottom:12px">
+
+  <button
+    style="width:100%;padding:12px;
+           background:#607d8b;color:white;border:none;border-radius:6px"
+    onclick="staffSignup()">
+    Join Showroom
+  </button>
+
+  <br><br>
+
+  <button
+    onclick="openSetup()"
+    style="background:none;border:none;color:#0a2e5c">
+    ← Back
+  </button>
 </div>
 
 
@@ -2433,6 +2582,19 @@ function printCurrentBill(){
   }, 500);
 }
 
+function hideAllAuthBoxes(){
+    const ids = [
+      "loginBox",
+      "setupBox",
+      "ownerSetupBox",
+      "staffSetupBox"
+    ];
+
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = "none";
+    });
+  }
 </script>
 <div id="toast"></div>
 </body>
