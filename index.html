@@ -830,18 +830,15 @@ dashboard();
     
     }, 800);
 });
-  
-window.logout = async function(){
+  window.logout = async function(){
+  if(!confirm("Are you sure you want to logout?")) return;
+
   await auth.signOut();
   localStorage.removeItem("currentUID");
   location.reload();
 };
-
 </script>
-
-  
 </head>
-
 <body>
 <div id="walkthrough"
      style="
@@ -1253,6 +1250,14 @@ window.showCodeHint = () => {
   );
 };
 
+function copyShowroomCode(){
+  const input = document.getElementById("showroomCodeView");
+  if(!input) return;
+
+  input.select();
+  document.execCommand("copy");
+  toast("Showroom code copied","success");
+}
 function setLoading(btn, text = "Please wait…"){
   if(!btn) return;
   btn.dataset.oldText = btn.innerHTML;
@@ -1907,7 +1912,8 @@ if(s.parts.length === 0 && s.labour === 0 && s.waterWash === 0){
   waterWash: s.waterWash,
   labour: s.labour,
   total,
-  paymentType: s.paymentType, // 🔑 THIS WAS MISSING
+  paymentType: s.paymentType,
+  by: auth.currentUser.email,   // 👈 ADD
   invoice:false
 });
 
@@ -2174,6 +2180,7 @@ function serviceHistoryView(){
         Vehicle: ${x.vehicle}<br>
         Date: ${new Date(x.time).toLocaleString()}<br>
         Total: ₹${x.total || 0}<br><br>
+        ${x.by ? `<small>Handled by: ${x.by}</small><br>` : ``}
 
         <button
           onclick='sendServiceWhatsApp(${JSON.stringify(x).replace(/"/g,"&quot;")})'
@@ -2609,7 +2616,7 @@ async function staffManagerView(){
 }
 
 async function removeStaff(uid){
-  if(!confirm("Remove this staff account permanently?")) return;
+  if(!confirm("Are you sure?\nThis staff will lose access immediately.")) return;
 
   await setDoc(doc(window.db,"users",uid),{
     role:"revoked",
@@ -2655,6 +2662,24 @@ function showroomSettingsView(){
      src="${p.logo || ''}" 
      style="max-width:120px;${p.logo?'':'display:none'}"><br><br>
       
+      <label>Showroom Code</label>
+<div style="
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:16px;
+">
+  <input
+    id="showroomCodeView"
+    readonly
+    value="${p.code || ''}"
+    style="flex:1;padding:8px;font-weight:bold"
+  >
+  <button onclick="copyShowroomCode()" class="btn btn-info">
+    📋 Copy
+  </button>
+</div>
+
       <button onclick="saveShowroomSettings()" class="big-btn" style="background:#0a2e5c;color:white;border:none;">
         💾 Save Settings
       </button>
