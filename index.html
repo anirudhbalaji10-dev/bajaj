@@ -336,8 +336,10 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail     // ✅ ADD THIS
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
 import { onSnapshot } 
 from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import {
@@ -659,6 +661,22 @@ signupBtn.onclick = async () => {
   }
 };
 
+window.resetPassword = async () => {
+  const email = document.getElementById("email").value.trim();
+
+  if(!email){
+    alert("Enter your email first");
+    return;
+  }
+
+  try{
+    await sendPasswordResetEmail(auth, email);
+    alert("Password reset link sent to your email");
+  }catch(e){
+    alert("Email not found or error occurred");
+  }
+};
+
   // 🔓 SAFETY SPLASH RELEASE
 function applyRoleUI(role){
   const ownerOnly = [
@@ -763,16 +781,32 @@ window.logout = async function(){
 <body>
  <div id="loginBox" style="max-width:360px;margin:60px auto;padding:20px;">
  <h2 id="loginShowroomTitle">Bajaj Login</h2>
+  <p style="font-size:13px;color:#555;margin-bottom:12px">
+  👋 First time here?  
+  <br>
+  Owners create a new showroom.  
+  Staff login using showroom code from owner.
+</p>
   <input id="email" type="email" placeholder="Enter Gmail" style="width:100%;padding:10px"><br><br>
   <input id="password" type="password" placeholder="Password" style="width:100%;padding:10px"><br><br>
-   <input id="showroomCode" placeholder="Showroom Code (Staff only)"
- style="width:100%;padding:10px;margin-bottom:8px">
+   <input
+  id="showroomCode"
+  placeholder="Showroom Code (Staff only)"
+  onfocus="showCodeHint()"
+  style="width:100%;padding:10px;margin-bottom:8px">
+  <small>Already have an account?</small>
   <button id="loginBtn" style="width:100%;padding:12px;background:#0a2e5c;color:white;border:none;">
     Login
   </button>
+  <button
+  onclick="resetPassword()"
+  style="margin-top:10px;background:none;border:none;color:#0a2e5c;text-decoration:underline">
+  Forgot password?
+</button>
    <br><br>
   <input id="showroomName" placeholder="Showroom Name"
  style="width:100%;padding:10px;margin-bottom:8px">
+ <small>New showroom owner?</small>
 <button id="signupBtn" style="width:100%;padding:12px;background:#4caf50;color:white;border:none;">
   Create New Account
 </button>
@@ -929,6 +963,14 @@ function toast(msg, type="info"){
     t.classList.remove("show");
   }, 2500);
 }
+
+window.showCodeHint = () => {
+  toast(
+    "Staff users: enter the showroom code given by owner. Owners leave this empty.",
+    "info"
+  );
+};
+
 function setLoading(btn, text = "Please wait…"){
   if(!btn) return;
   btn.dataset.oldText = btn.innerHTML;
